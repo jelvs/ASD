@@ -3,7 +3,7 @@ import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory,ConfigValueFactory}
 import layers.{PartialView}
 
-  object Operation extends App{
+  object Process extends App{
 
     var port = 2552
     if (args.length != 0) {
@@ -20,7 +20,7 @@ import layers.{PartialView}
 
     def configure(): Config = {
 
-      ConfigFactory.load.getConfig("Operation").withValue("akka.remote.netty.tcp.port",
+      ConfigFactory.load.getConfig("Process").withValue("akka.remote.netty.tcp.port",
         ConfigValueFactory.fromAnyRef(port))
 
     }
