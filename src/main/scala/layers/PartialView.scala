@@ -6,25 +6,36 @@ import app._
 
 class PartialView extends Actor {
 
+  var myself: String = ""
   var activeView: List[String] = List.empty
   var passiveView: List[String] = List.empty
-  var ownAddress: String = ""
   val activeSize = 3
-  //val ARWL  //Active Random Walk Length
-  //val PRWL  //Passive Random Walk Length
+  val ARWL = 5  //Active Random Walk Length
+  val PRWL = 5 //Passive Random Walk Length
 
 
   override def receive = {
     case message: Init => {
 
-      ownAddress = message.ownAddress
+      if(!message.contactNode.equals("")) {
 
+        val contactNode = message.contactNode
+        val process = context.actorSelection(s"${contactNode}/user/PartialView")
+
+        println("Process path: " + process.toString())
+        println("Send Join")
+
+        process ! Join(message.ownAddress)
+
+      }
 
     }
-    case join: Join => {
 
-
+    case message : Join => {
+      addNodeActiveView(message.newNodeAddress)
+      println("Roger That Join")
     }
+
 
     case forwardjoin: ForwardJoin => {
 
@@ -42,6 +53,9 @@ class PartialView extends Actor {
 
   def addNodeActiveView(node : String) = {
 
+
+    activeView = activeView :+ node
+    println("node added to activeView : " + node )
   }
 
   def dropRandomNodeActiveView() = {

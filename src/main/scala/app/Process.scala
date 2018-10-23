@@ -14,8 +14,20 @@ import layers.{PartialView}
     val system = ActorSystem("SystemName", config)
     val ownAddress = getOwnAddress(port)
     val partialView = system.actorOf(Props[PartialView] , "PartialView")
+
+    var contactNode = ""
+    if (args.length > 1) {
+      contactNode = args(1)
+    }
     
     println(ownAddress)
+
+
+    partialView ! Init(ownAddress, contactNode)
+
+
+    println("Contact Node: " + contactNode)
+
 
 
     def configure(): Config = {
