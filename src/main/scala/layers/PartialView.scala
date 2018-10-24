@@ -50,8 +50,6 @@ class PartialView extends Actor {
 
 
       })
-      println("active View : ")
-      activeView.foreach(aView => println("\t" + aView.toString))
 
     }
 
@@ -76,10 +74,8 @@ class PartialView extends Actor {
         process ! ForwardJoin(n, forwardJoin.arwl, forwardJoin.senderAddress)
 
       }
-      println("passive View : ")
-      passiveView.foreach(pView => println("\t" + pView.toString))
-      println("active View : ")
-      activeView.foreach(aView => println("\t" + aView.toString))
+
+
 
 
     }
@@ -95,12 +91,22 @@ class PartialView extends Actor {
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(myself)) {
 
+      if(activeView.size >= activeSize){
+        dropRandomNodeActiveView()
+      }
       activeView = activeView :+ node
-//    println("node added to activeView : " + node)
+      println("node added to activeView : " + node)
     }
+
+
+    println("active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
   }
 
   def dropRandomNodeActiveView() = {
+    val n : String = Random.shuffle(activeView).head
+
+
 
 
   }
@@ -108,8 +114,16 @@ class PartialView extends Actor {
   def addNodePassiveView(node: String) = {
     if (!passiveView.contains(node) && !activeView.contains(node) && !node.equals(myself)) {
 
+      if(activeView.size >= activeSize){
+        val n : String = Random.shuffle(passiveView).head
+        passiveView = passiveView.filter(!_.equals(n))
+      }
       passiveView = passiveView :+ node
-
     }
+
+
+
+    println("passive View : ")
+    passiveView.foreach(pView => println("\t" + pView.toString))
   }
 }
