@@ -3,6 +3,8 @@ package layers
 import akka.actor.Actor
 import app._
 
+import scala.util.Random
+
 
 class PartialView extends Actor {
 
@@ -19,13 +21,15 @@ class PartialView extends Actor {
 
       if (!message.contactNode.equals("")) {
 
-        val contactNode = message.contactNode
-        val process = context.actorSelection(s"${contactNode}/user/PartialView")
+        //      val contactNode = message.contactNode
+        val process = context.actorSelection(s"${message.contactNode}/user/PartialView")
 
-        println("Process path: " + process.toString())
+        //        println("Process path: " + process.toString())
         println("Send Join")
 
         process ! Join(message.ownAddress)
+
+        addNodeActiveView(message.contactNode)
 
       }
 
@@ -33,26 +37,49 @@ class PartialView extends Actor {
 
     case join: Join => {
       addNodeActiveView(join.newNodeAddress)
-        //      println("Roger That Join")
+      //      println("Roger That Join")
 
-      activeView.filter(node => equals(join.newNodeAddress)).foreach(node => {
-
+      activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
+        println(node)
         //      Criar Processo para enviar Forward Join
 
-        val process = context.actorSelection(s"${node}/user/partialView")
+        val process = context.actorSelection(s"${node}/user/PartialView")
 
         process ! ForwardJoin(join.newNodeAddress, ARWL, myself)
 
 
 
       })
-      println("active View : " )
+      println("active View : ")
       activeView.foreach(aView => println("\t" + aView.toString))
 
     }
 
 
-    case forwardjoin: ForwardJoin => {
+    case forwardJoin: ForwardJoin => {
+      if (forwardJoin.arwl == 0 || activeView.size == 1) {
+
+        addNodeActiveView(forwardJoin.newNode)
+
+      } else {
+
+        if(forwardJoin.arwl == PRWL){
+
+          addNodePassiveView(forwardJoin.newNode)
+
+        }
+
+        val n : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head
+
+        val process = context.actorSelection(s"${n}/user/PartialView")
+
+        process ! ForwardJoin(n, forwardJoin.arwl, forwardJoin.senderAddress)
+
+      }
+      println("passive View : ")
+      passiveView.foreach(pView => println("\t" + pView.toString))
+      println("active View : ")
+      activeView.foreach(aView => println("\t" + aView.toString))
 
 
     }
@@ -66,10 +93,10 @@ class PartialView extends Actor {
   }
 
   def addNodeActiveView(node: String) = {
-    if(!activeView.contains(node) && !node.equals(myself) ) {
+    if (!activeView.contains(node) && !node.equals(myself)) {
 
-        activeView = activeView :+ node
-//      println("node added to activeView : " + node)
+      activeView = activeView :+ node
+//    println("node added to activeView : " + node)
     }
   }
 
@@ -78,7 +105,11 @@ class PartialView extends Actor {
 
   }
 
-  def AddNodePassiveView(node: String) = {
+  def addNodePassiveView(node: String) = {
+    if (!passiveView.contains(node) && !activeView.contains(node) && !node.equals(myself)) {
 
+      passiveView = passiveView :+ node
+
+    }
   }
 }
