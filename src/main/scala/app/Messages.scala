@@ -8,5 +8,7 @@ package app
 
   case class Disconnect (disconnectNode: String)
 
+  case class Update ()
+
 
 
