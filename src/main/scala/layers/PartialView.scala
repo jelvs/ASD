@@ -143,6 +143,8 @@ class PartialView extends Actor {
     if (!passiveView.contains(node) && !activeView.contains(node) && !node.equals(myself)) {
 
       if(activeView.size >= activeSize){
+
+        //TODO NoSuchElementException: head of empty list
         val n : String = Random.shuffle(passiveView).head
         passiveView = passiveView.filter(!_.equals(n))
       }
