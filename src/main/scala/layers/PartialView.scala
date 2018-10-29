@@ -68,7 +68,7 @@ class PartialView extends Actor {
       } else {
 
         if(forwardJoin.arwl == PRWL){
-          println("Here!")
+
           addNodePassiveView(forwardJoin.newNode)
 
         }
@@ -150,8 +150,7 @@ class PartialView extends Actor {
       println("node added to passiveView : " + node)
 
       if(activeView.size >= activeSize){
-
-        //TODO NoSuchElementException: head of empty list
+        
         val n : String = Random.shuffle(passiveView).head
         passiveView = passiveView.filter(!_.equals(n))
       }
