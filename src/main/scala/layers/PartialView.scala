@@ -68,7 +68,7 @@ class PartialView extends Actor {
       } else {
 
         if(forwardJoin.arwl == PRWL){
-
+          println("Here!")
           addNodePassiveView(forwardJoin.newNode)
 
         }
@@ -77,9 +77,11 @@ class PartialView extends Actor {
 
         val process = context.actorSelection(s"${n}/user/PartialView")
 
-        process ! ForwardJoin(n, forwardJoin.arwl, forwardJoin.senderAddress)
+        process ! ForwardJoin(n, forwardJoin.arwl-1, forwardJoin.senderAddress)
 
       }
+
+
 
 
 
@@ -91,6 +93,7 @@ class PartialView extends Actor {
         if(activeView.contains(disconnect.disconnectNode)){
           activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
           addNodePassiveView(disconnect.disconnectNode)
+
         }
 
     }
@@ -140,7 +143,11 @@ class PartialView extends Actor {
 
 
   def addNodePassiveView(node: String) = {
+
     if (!passiveView.contains(node) && !activeView.contains(node) && !node.equals(myself)) {
+
+      passiveView = passiveView :+ node
+      println("node added to passiveView : " + node)
 
       if(activeView.size >= activeSize){
 
@@ -148,12 +155,8 @@ class PartialView extends Actor {
         val n : String = Random.shuffle(passiveView).head
         passiveView = passiveView.filter(!_.equals(n))
       }
-      passiveView = passiveView :+ node
+
     }
-
-
-
-    /*println("passive View : ")
-    passiveView.foreach(pView => println("\t" + pView.toString))*/
   }
+
 }
