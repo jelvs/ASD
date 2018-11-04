@@ -18,8 +18,6 @@ class PartialView extends Actor {
   override def receive = {
     case message: Init => {
 
-      if (!message.contactNode.equals("")) {
-
         //val contactNode = message.contactNode
         val process = context.actorSelection(s"${message.contactNode}/user/PartialView")
 
@@ -30,7 +28,7 @@ class PartialView extends Actor {
 
         addNodeActiveView(message.contactNode)
 
-      }
+
 
     }
 
