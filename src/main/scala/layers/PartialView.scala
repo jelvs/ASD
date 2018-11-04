@@ -5,7 +5,6 @@ import app._
 
 import scala.util.Random
 
-
 class PartialView extends Actor {
 
   var myself: String = ""
@@ -21,10 +20,10 @@ class PartialView extends Actor {
 
       if (!message.contactNode.equals("")) {
 
-        //      val contactNode = message.contactNode
+        //val contactNode = message.contactNode
         val process = context.actorSelection(s"${message.contactNode}/user/PartialView")
 
-        //        println("Process path: " + process.toString())
+        //println("Process path: " + process.toString())
         println("Send Join")
 
         process ! Join(message.ownAddress)
@@ -37,7 +36,7 @@ class PartialView extends Actor {
 
     case join: Join => {
       addNodeActiveView(join.newNodeAddress)
-      //      println("Roger That Join")
+      //println("Roger That Join")
 
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
         println(node)
@@ -50,7 +49,6 @@ class PartialView extends Actor {
 
 
       })
-
 
 
     }
@@ -80,12 +78,6 @@ class PartialView extends Actor {
         process ! ForwardJoin(n, forwardJoin.arwl-1, forwardJoin.senderAddress)
 
       }
-
-
-
-
-
-
 
     }
 

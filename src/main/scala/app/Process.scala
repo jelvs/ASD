@@ -22,12 +22,10 @@ object Process extends App {
   }
 
   println(ownAddress)
-
-
   partialView ! Init(ownAddress, contactNode)
 
 
-  //    println("Contact Node: " + contactNode)
+//  println("Contact Node: " + contactNode)
 
 
   def configure(): Config = {
