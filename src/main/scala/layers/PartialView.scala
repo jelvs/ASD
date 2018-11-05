@@ -1,54 +1,35 @@
 package layers
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorLogging, Props}
 import app._
 
 import scala.util.Random
 
-class PartialView extends Actor {
+class PartialView extends Actor
+{
 
-  var myself: String = ""
   var activeView: List[String] = List.empty
   var passiveView: List[String] = List.empty
-  val activeSize = 3
+  val activeViewThreshold = 6
   val ARWL = 5 //Active Random Walk Length
   val PRWL = 5 //Passive Random Walk Length
-
 
   override def receive = {
     case message: Init => {
 
-        //val contactNode = message.contactNode
-        val process = context.actorSelection(s"${message.contactNode}/user/PartialView")
-
-        //println("Process path: " + process.toString())
-        println("Send Join")
-
+        val process = context.actorSelection(message.contactNode)
         process ! Join(message.ownAddress)
-
         addNodeActiveView(message.contactNode)
-
-
-
     }
 
     case join: Join => {
       addNodeActiveView(join.newNodeAddress)
-      //println("Roger That Join")
-
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
         println(node)
-        //      Criar Processo para enviar Forward Join
-
+        //Criar Processo para enviar Forward Join
         val process = context.actorSelection(s"${node}/user/PartialView")
-
         process ! ForwardJoin(join.newNodeAddress, ARWL, myself)
-
-
-
       })
-
-
     }
 
 
@@ -99,17 +80,14 @@ class PartialView extends Actor {
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(myself)) {
 
-      if(activeView.size >= activeSize){
+      if(activeView.size +1 == activeViewThreshold){
         dropRandomNodeActiveView()
       }
       activeView = activeView :+ node
       println("node added to activeView : " + node)
     }
-
     println("active View : ")
     activeView.foreach(aView => println("\t" + aView.toString))
-
-
   }
 
 
@@ -140,7 +118,7 @@ class PartialView extends Actor {
       println("node added to passiveView : " + node)
 
       if(activeView.size >= activeSize){
-        
+
         val n : String = Random.shuffle(passiveView).head
         passiveView = passiveView.filter(!_.equals(n))
       }
@@ -149,3 +127,19 @@ class PartialView extends Actor {
   }
 
 }
+
+object PartialView{
+  val props = Props[PartialView]
+
+  case class Init (ownAddress : String, contactNode : String)
+
+  case class Join (newNodeAddress: String)
+
+  case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String)
+
+  case class Disconnect (disconnectNode: String)
+
+  case class Update ()
+
+}
+

@@ -16,13 +16,14 @@ object Process extends App {
       .withFallback(ConfigFactory.parseString("akka.cluster.roles = [node]"))
       .withFallback(ConfigFactory.load())
 
-    //Creates an actor system
-    val system = ActorSystem("ClusterSystem", config)
+    //Creates an actor system -- this is actually a process
+    val process = ActorSystem("Node", config)
 
     //Create new actor as child of this context
     val ownAddress = getOwnAddress(port.toInt)
     val partialView = system.actorOf(Props[PartialView], "PartialView")
     //e suposto saber ja o contact node assim ??
+    //Como receber o nome do contact node??  actorSystemName@10.0.0.1:2552/user/actorName -> Node@127.0.0.1:9999/user/partialview
     var contactNode = args(1)
     println(ownAddress)
     partialView ! Init(ownAddress, contactNode)
