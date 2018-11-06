@@ -33,5 +33,4 @@ object Process extends App {
       s"akka.tcp://${process.name}@${address}:${port}"
     }
 
-
 }

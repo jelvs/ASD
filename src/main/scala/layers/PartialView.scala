@@ -1,16 +1,18 @@
 package layers
 
-import akka.actor.{Actor, ActorPath, ActorRef, DeadLetter, Props}
+import akka.actor.Timers
+import akka.actor.{Actor, ActorPath, ActorRef, Props}
+import akka.actor.Timers
 import app._
 
 import scala.util.Random
 
-class PartialView extends Actor
+class PartialView extends Actor with Timers
 {
   val SYSTEM_NAME = "node";
   val ACTOR_NAME = "/user/PartialView"; //é actor name?
   var ownAddress : ActorPath = null ; //actor ref
-  var activeView: List[String] = List.empty;
+  var activeView: List[String] = List.empty; //list of node@host:port
   var passiveView: List[String] = List.empty;
   val activeViewThreshold = 6;
   val passiveViewThreashold = 35;
@@ -20,8 +22,8 @@ class PartialView extends Actor
   override def receive = {
     case message: Init => {
 
-        val remoteProcess = context.actorSelection(SYSTEM_NAME.concat(message.contactNode.concat(ACTOR_NAME)));  //node@host:port/user/PartialView
-        this.ownAddress = self.path;
+        val remoteProcess = context.actorSelection(message.contactNode.concat(ACTOR_NAME));  //node@host:port/user/PartialView
+        this.ownAddress = self.path.address.hostPort;
         remoteProcess ! Join(message.ownAddress);
         addNodeActiveView(message.contactNode);
     }
@@ -29,8 +31,8 @@ class PartialView extends Actor
     case join: Join => {
       addNodeActiveView(join.newNodeAddress);
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
-        val process = context.actorSelection(SYSTEM_NAME.concat(join.newNodeAddress.concat(ACTOR_NAME)));
-        process ! ForwardJoin(join.newNodeAddress, ARWL, ownAddress)
+        val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME));
+        remoteProcess ! ForwardJoin(join.newNodeAddress, ARWL, ownAddress);
       })
     }
 
@@ -46,11 +48,9 @@ class PartialView extends Actor
         }
 
         val neighborAdress : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head;
-        val neighborMembershipActor = context.actorSelection(SYSTEM_NAME.concat(neighborAdress.concat(ACTOR_NAME)));
+        val neighborMembershipActor = context.actorSelection(neighborAdress.concat(ACTOR_NAME));
         neighborMembershipActor ! ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, ownAddress);
-
       }
-
     }
 
     case disconnect: Disconnect => {
@@ -60,9 +60,8 @@ class PartialView extends Actor
       }
     }
 
-    case deadLetter : DeadLetter => {
-
-      dropFromActiveView(DeadLetter.)
+    case nodeFailure : NodeFailure => {
+      dropFromActiveView(nodeFailure.nodeAddress)
       promoteProcessToActiveView();
     }
   }
@@ -111,13 +110,14 @@ class PartialView extends Actor
 object PartialView{
   val props = Props[PartialView]
 
-  case class Init (ownAddress : String, contactNode : String)
+  case class Init (ownAddress : String, contactNode : String);
 
-  case class Join (newNodeAddress: String)
+  case class Join (newNodeAddress: String);
 
-  case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String)
+  case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String);
 
-  case class Disconnect (disconnectNode: String)
+  case class Disconnect (disconnectNode: String);
 
+  case class NodeFailure(nodeAddress: String);
 }
 
