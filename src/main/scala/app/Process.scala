@@ -2,7 +2,7 @@ package app
 
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import layers.{PartialView}
+import layers.MembershipLayer.PartialView
 
 object Process extends App {
 

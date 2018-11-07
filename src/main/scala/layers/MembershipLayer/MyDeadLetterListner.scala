@@ -1,7 +1,6 @@
-package layers
+package layers.MembershipLayer
 
-import akka.actor.{Actor, DeadLetter,ActorPath, ActorRef, Props}
-import app._
+import akka.actor.{Actor, DeadLetter}
 
 class MyDeadLetterListner extends Actor {
 

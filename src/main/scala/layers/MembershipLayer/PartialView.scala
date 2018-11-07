@@ -1,8 +1,6 @@
-package layers
+package layers.MembershipLayer
 
-import akka.actor.Timers
-import akka.actor.{Actor, ActorPath, ActorRef, Props}
-import akka.actor.Timers
+import akka.actor.{Actor, Props, Timers}
 import app._
 
 import scala.util.Random
