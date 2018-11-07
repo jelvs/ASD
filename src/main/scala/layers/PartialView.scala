@@ -11,7 +11,7 @@ class PartialView extends Actor with Timers
 {
   val SYSTEM_NAME = "node";
   val ACTOR_NAME = "/user/PartialView"; //é actor name?
-  var ownAddress : ActorPath = null ; //actor ref
+  var ownAddress : String = null ; //actor ref
   var activeView: List[String] = List.empty; //list of node@host:port
   var passiveView: List[String] = List.empty;
   val activeViewThreshold = 6;
