@@ -2,6 +2,8 @@ package app
 
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import layers.EpidemicBroadcastTree.MainPlummtree
+import layers.EpidemicBroadcastTree.MainPlummtree.Broadcast
 import layers.MembershipLayer.PartialView
 
 object Process extends App {
@@ -21,10 +23,13 @@ object Process extends App {
     //Create new actor as child of this context
     val ownAddress = getOwnAddress(port.toInt);
     val partialView = process.actorOf(Props[PartialView], "PartialView");
+    val plummtree = process.actorOf(Props[MainPlummtree], "Plummtree");
     //e suposto saber ja o contact node assim ??
     //Como receber o nome do contact node??  actorSystemName@10.0.0.1:2552/user/actorName -> Node@127.0.0.1:9999/user/partialview
     var contactNode = args(1);
     partialView ! Init(ownAddress, contactNode);
+    plummtree ! Init();
+
 
   def getOwnAddress(port: Int) = {
       val address = config.getAnyRef("akka.remote.netty.tcp.hostname")

@@ -2,6 +2,7 @@ package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
 import app._
+import layers.MembershipLayer.PartialView.NodeFailure
 
 import scala.util.Random
 
@@ -59,9 +60,11 @@ class PartialView extends Actor with Timers
     }
 
     case nodeFailure : NodeFailure => {
-      dropFromActiveView(nodeFailure.nodeAddress)
+      activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress));
       promoteProcessToActiveView();
     }
+
+
   }
 
   def addNodeActiveView(node: String) = {
@@ -117,5 +120,7 @@ object PartialView{
   case class Disconnect (disconnectNode: String);
 
   case class NodeFailure(nodeAddress: String);
+
+  case class getPeers(fanout: Integer);
 }
 
