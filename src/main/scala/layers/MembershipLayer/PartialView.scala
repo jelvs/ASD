@@ -64,6 +64,10 @@ class PartialView extends Actor with Timers
       promoteProcessToActiveView();
     }
 
+    case getPeers: PartialView.getPeers => {
+      val peers = activeView.splitAt(getPeers.fanout)
+      sender ! peers;
+    }
 
   }
 
