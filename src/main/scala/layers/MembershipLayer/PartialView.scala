@@ -19,24 +19,24 @@ class PartialView extends Actor with Timers
   val PRWL = 5; //Passive Random Walk Length
 
   override def receive = {
-    case message: Init => {
+    case message: PartialView.Init => {
 
         val remoteProcess = context.actorSelection(message.contactNode.concat(ACTOR_NAME));  //node@host:port/user/PartialView
         this.ownAddress = self.path.address.hostPort;
-        remoteProcess ! Join(message.ownAddress);
+        remoteProcess ! PartialView.Join(message.ownAddress);
         addNodeActiveView(message.contactNode);
     }
 
-    case join: Join => {
+    case join: PartialView.Join => {
       addNodeActiveView(join.newNodeAddress);
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
         val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME));
-        remoteProcess ! ForwardJoin(join.newNodeAddress, ARWL, ownAddress);
+        remoteProcess ! PartialView.ForwardJoin(join.newNodeAddress, ARWL, ownAddress);
       })
     }
 
 
-    case forwardJoin: ForwardJoin => {
+    case forwardJoin: PartialView.ForwardJoin => {
 
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         addNodeActiveView(forwardJoin.newNode);
@@ -48,18 +48,18 @@ class PartialView extends Actor with Timers
 
         val neighborAdress : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head;
         val neighborMembershipActor = context.actorSelection(neighborAdress.concat(ACTOR_NAME));
-        neighborMembershipActor ! ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, ownAddress);
+        neighborMembershipActor ! PartialView.ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, ownAddress);
       }
     }
 
-    case disconnect: Disconnect => {
+    case disconnect: PartialView.Disconnect => {
       if (activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode));
         addNodePassiveView(disconnect.disconnectNode);
       }
     }
 
-    case nodeFailure : NodeFailure => {
+    case nodeFailure : PartialView.NodeFailure => {
       activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress));
       promoteProcessToActiveView();
     }
@@ -79,7 +79,7 @@ class PartialView extends Actor with Timers
   def dropRandomNodeActiveView() = {
     val remoteProcessAdress : String = Random.shuffle(activeView).head; //gives node@ip:port
     val remoteActor = context.actorSelection(SYSTEM_NAME.concat(remoteProcessAdress.concat(ACTOR_NAME)));
-    remoteActor ! Disconnect(ownAddress);
+    remoteActor ! PartialView.Disconnect(ownAddress);
     activeView = activeView.filter(!_.equals(remoteProcessAdress));
     addNodePassiveView(remoteProcessAdress);
   }

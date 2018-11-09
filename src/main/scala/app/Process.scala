@@ -27,8 +27,8 @@ object Process extends App {
     //e suposto saber ja o contact node assim ??
     //Como receber o nome do contact node??  actorSystemName@10.0.0.1:2552/user/actorName -> Node@127.0.0.1:9999/user/partialview
     var contactNode = args(1);
-    partialView ! Init(ownAddress, contactNode);
-    plummtree ! Init();
+    partialView ! PartialView.Init(ownAddress, contactNode);
+    plummtree ! MainPlummtree.Init();
 
 
   def getOwnAddress(port: Int) = {

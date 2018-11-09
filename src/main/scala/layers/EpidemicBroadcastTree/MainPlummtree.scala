@@ -24,7 +24,7 @@ class MainPlummtree extends Actor {
   val fanout = 4;
   var ownAddress: String;
 
-  def eagerPush(message: String, messageId: Int, round: Int, sender: String): Unit = {
+  def eagerPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- eagerPushPeers if !peerAddress.equals(sender)) {
       val actorRef = context.actorSelection(peerAddress.concat(ACTORNAME));
       actorRef ! GossipMessage(message, messageId, round, sender);
@@ -36,7 +36,7 @@ class MainPlummtree extends Actor {
   }
 
 
-  def lazyPush(message: String, messageId: Int, round: Int, sender: String): Unit = {
+  def lazyPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- lazyPushPeers if !peerAddress.equals(sender)) {
       //TODO: what bro?!
       dispatch();
@@ -71,7 +71,6 @@ class MainPlummtree extends Actor {
       eagerPush(broadCast.message, messageId, 0, ownAddress);
       lazyPush(broadCast.message, messageId, 0, ownAddress);
       //TODO: Deliver
-
       receivedMessages = receivedMessages :+ messageId;
     }
 
@@ -110,9 +109,9 @@ object MainPlummtree {
 
   case class PeerSample(peerSample: List[String]);
 
-  case class Broadcast(message: String);
+  case class Broadcast(message: Any);
 
-  case class GossipMessage(message :String, messageId: Int, round: Int, sender: String);
+  case class GossipMessage(message :Any, messageId: Int, round: Int, sender: String);
 
   case class Prune(sender: String);
 
