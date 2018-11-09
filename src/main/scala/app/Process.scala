@@ -28,7 +28,7 @@ object Process extends App {
     //Como receber o nome do contact node??  actorSystemName@10.0.0.1:2552/user/actorName -> Node@127.0.0.1:9999/user/partialview
     var contactNode = args(1);
     partialView ! Init(ownAddress, contactNode);
-    plummtree ! Init(ownAddress, contactNode);
+    plummtree ! Init();
 
 
   def getOwnAddress(port: Int) = {
