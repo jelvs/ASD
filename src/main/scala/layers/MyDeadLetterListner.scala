@@ -1,4 +1,4 @@
-package layers.MembershipLayer
+package layers
 
 import akka.actor.{Actor, DeadLetter}
 
