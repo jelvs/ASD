@@ -1,8 +1,7 @@
 package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
-import app._
-import layers.MembershipLayer.PartialView.NodeFailure
+
 
 import scala.util.Random
 
@@ -17,6 +16,7 @@ class PartialView extends Actor with Timers
   val passiveViewThreashold = 35;
   val ARWL = 5; //Active Random Walk Length
   val PRWL = 5; //Passive Random Walk Length
+  var processesAlive = Map[String, Double]()
 
   override def receive = {
     case message: PartialView.Init => {
@@ -25,6 +25,7 @@ class PartialView extends Actor with Timers
         this.ownAddress = self.path.address.hostPort;
         remoteProcess ! PartialView.Join(message.ownAddress);
         addNodeActiveView(message.contactNode);
+
     }
 
     case join: PartialView.Join => {
@@ -56,6 +57,9 @@ class PartialView extends Actor with Timers
       if (activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode));
         addNodePassiveView(disconnect.disconnectNode);
+
+
+        processesAlive -= disconnect.disconnectNode
       }
     }
 
@@ -68,6 +72,15 @@ class PartialView extends Actor with Timers
       val peers = activeView.splitAt(getPeers.fanout)
       sender ! peers;
     }
+
+    case heartbeat: PartialView.Heartbeat => {
+      //println("heartbeat from: " + sender.path.address.toString)
+      var timer: Double = System.currentTimeMillis()
+      if (processesAlive.contains(sender.path.address.toString)) {
+        processesAlive += (sender.path.address.toString -> timer)
+      }
+    }
+
 
   }
 
@@ -106,6 +119,13 @@ class PartialView extends Actor with Timers
 
   }
 
+  def InitHeartbeat() = {
+    for (h <- activeView) {
+      var process = context.actorSelection(s"${h}/user/partialView")
+      process ! PartialView.Heartbeat()
+    }
+  }
+
   def promoteProcessToActiveView(): Unit ={
 
 
@@ -114,6 +134,8 @@ class PartialView extends Actor with Timers
 
 object PartialView{
   val props = Props[PartialView]
+
+  case class Heartbeat()
 
   case class Init (ownAddress : String, contactNode : String);
 
