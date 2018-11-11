@@ -53,11 +53,13 @@ class MainPlummtree extends Actor with Timers {
       val actorRef = context.actorSelection(gossipReceive.sender + ACTOR_NAME)
 
       if (!receivedMessages.contains(gossipReceive.messageId)) {
-        //TODO: Deliver
+
+        val pubsubActor = context.actorSelection("/user/PublishSubscribe")
+        pubsubActor ! BroadCastDeliver(gossipReceive.message)
         receivedMessages = receivedMessages :+ gossipReceive.messageId
 
         //TODO: Melhorar isto xD
-        breakable {
+        breakable{
           for (missingMessage <- missing if (missingMessage.messageId == gossipReceive.messageId)) { //semelhante ao filter
             timers.cancel(missingMessage.messageId);
             break
@@ -249,6 +251,7 @@ object MainPlummtree {
 
   case class Optimization( messageId: Int, round: Int, sender: String)
 
+  case class BroadCastDeliver(message: Any)
 }
 
 

@@ -68,6 +68,7 @@ class PublishSubscribe  extends Actor
       broadcastTree ! Broadcast(publish)
     }
 
+
       
   }
 }
@@ -89,6 +90,7 @@ object PublishSubscribe {
 
   case class ShortcutDeliver(topic: String )
 
+  case class DeliverPublish(message: Any)
 }
 
 
