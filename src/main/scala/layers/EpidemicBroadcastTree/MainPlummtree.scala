@@ -17,14 +17,15 @@ class MainPlummtree extends Actor with Timers {
 
   val ACTOR_NAME: String = "/user/MainPlummtree"
 
-  var eagerPushPeers: List[String]
-  var lazyPushPeers: List[String]
-  var lazyQueue: List[GossipMessage]
-  var missing: List[IHave]
-  var receivedMessages: List[Int]
-  var partialViewRef: ActorRef
+  var eagerPushPeers: List[String] = List.empty
+  var lazyPushPeers: List[String] = List.empty
+  var lazyQueue: List[GossipMessage] = List.empty
+  var missing: List[IHave] = List.empty
+  var receivedMessages: List[Int] = List.empty
+  //var partialViewRef:ActorRef
   val fanout = 4
-  var ownAddress: String
+  var ownAddress: String = ""
+
 
 
   override def receive: PartialFunction[Any, Unit] = {
@@ -225,6 +226,7 @@ class MainPlummtree extends Actor with Timers {
 }
 
 object MainPlummtree {
+
   val props = Props[MainPlummtree]
 
   case class Init()
