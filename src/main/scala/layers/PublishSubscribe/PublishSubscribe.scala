@@ -5,8 +5,8 @@ import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import akka.actor.{Actor, ActorRef, Props}
 import akka.util.Timeout
-import layers.EpidemicBroadcastTree.MainPlummtree.Broadcast
-import layers.MembershipLayer.PartialView
+
+import layers.EpidemicBroadcastTree.MainPlummtree.{BroadCastDeliver, Broadcast}
 import layers.MembershipLayer.PartialView.getPeers
 import layers.PublishSubscribe.PublishSubscribe.{NeighborSubscription, NeighborUnSubscription, Publish, UnSubscribe}
 
@@ -20,9 +20,9 @@ class PublishSubscribe  extends Actor
 
   //TODO: Adicionar akka.tcp:// em tudo
   val prependAkkaIdentifier :String = "akka.tcp://"
-  var myNeighbors : List[String]
-  var mySubscriptions : List[String]
-  var neighborSubscriptions : Map[String, List[String]]
+  var myNeighbors : List[String] = List.empty
+  var mySubscriptions : List[String] = List.empty
+  var neighborSubscriptions : Map[String, List[String]] = Map.empty
   var ownAddress: String = ""
   val fanout: Integer = 5
 
@@ -68,8 +68,32 @@ class PublishSubscribe  extends Actor
       broadcastTree ! Broadcast(publish)
     }
 
+    case broadCastDeliver: BroadCastDeliver =>{
+      //TODO
 
-      
+
+
+    }
+
+    case neighborSubscription: NeighborSubscription =>{
+
+      var neiInterested : List[String] = neighborSubscriptions(neighborSubscription.topic)
+      if(!neiInterested.contains(neighborSubscription.neighborAddr)){
+        neiInterested = neiInterested :+ neighborSubscription.neighborAddr
+        neighborSubscriptions(neighborSubscription.topic) -> neiInterested
+      }
+    }
+
+    case neighborUnSubscription: NeighborUnSubscription =>{
+
+      var neiInterested : List[String] = neighborSubscriptions(neighborUnSubscription.topic)
+      if(neiInterested.contains(neighborUnSubscription.neighborAddr)) {
+        neiInterested = neiInterested.filter(_ != neighborUnSubscription.neighborAddr)
+        neighborSubscriptions(neighborUnSubscription.topic) -> neiInterested
+      }
+    }
+
+
   }
 }
 
