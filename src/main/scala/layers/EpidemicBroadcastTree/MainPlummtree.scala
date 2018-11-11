@@ -139,8 +139,6 @@ class MainPlummtree extends Actor with Timers {
 
   }
 
-
-
   def getMessage(messageId: Int): GossipMessage ={
 
     var gossipMessage : GossipMessage = null
