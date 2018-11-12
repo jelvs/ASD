@@ -156,8 +156,15 @@ class PartialView extends Actor with Timers
       }
       activeView = activeView :+ node
     }
-    //TODO : add to processesAlive
+    addAlive(node)
   }
+
+  def addAlive(node: String) = {
+
+    val timer: Double = System.currentTimeMillis()
+    processesAlive += (node -> timer)
+  }
+
 
   def dropRandomNodeActiveView() = {
     val remoteProcessAdress : String = Random.shuffle(activeView).head; //gives node@ip:port
