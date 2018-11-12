@@ -1,7 +1,11 @@
 package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
+import layers.EpidemicBroadcastTree.MainPlummtree
+
 import layers.MembershipLayer.PartialView._
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.util.Random
 
@@ -21,12 +25,21 @@ class PartialView extends Actor with Timers
 
 
   override def receive = {
+
+
     case message: PartialView.Init => {
 
         val remoteProcess = context.actorSelection(message.contactNode.concat(ACTOR_NAME));  //node@host:port/user/PartialView
         this.ownAddress = self.path.address.hostPort;
         remoteProcess ! PartialView.Join(message.ownAddress);
         addNodeActiveView(message.contactNode);
+
+        if (activeView.size >= 1){
+          MainPlummtree.Init()
+        }
+
+        //TODO : Pending ( not sure if its done this way!! )
+        context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
 
     }
 
@@ -169,7 +182,7 @@ class PartialView extends Actor with Timers
 
   }
 
-  def InitHeartbeat() = {
+  def initHeartbeat() = {
     for (h <- activeView) {
       var process = context.actorSelection(s"${h}/user/partialView")
       process ! PartialView.Heartbeat()
@@ -200,6 +213,7 @@ class PartialView extends Actor with Timers
 
   }
 
+
   def promoteProcessToActiveView(newNode: String) = {
     addNodeActiveView(newNode)
     val process = context.actorSelection(s"${newNode}/user/partialView")
@@ -208,6 +222,12 @@ class PartialView extends Actor with Timers
 
 
   }
+
+  def searchFailedNodes() = {
+
+  }
+
+
 }
 
 object PartialView{
