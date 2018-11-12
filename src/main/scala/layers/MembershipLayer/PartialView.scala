@@ -41,6 +41,8 @@ class PartialView extends Actor with Timers
         //TODO : Pending ( not sure if its done this way!! )
         context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
 
+        context.system.scheduler.schedule(0 seconds, 5 seconds)(searchFailedProcesses())
+
     }
 
     case join: PartialView.Join => {
@@ -64,7 +66,7 @@ class PartialView extends Actor with Timers
 
         val neighborAdress : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head;
         val neighborMembershipActor = context.actorSelection(neighborAdress.concat(ACTOR_NAME));
-        neighborMembershipActor ! PartialView.ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, ownAddress);
+        neighborMembershipActor ! PartialView.ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, forwardJoin.senderAddress);
       }
     }
 
@@ -73,16 +75,14 @@ class PartialView extends Actor with Timers
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode));
         addNodePassiveView(disconnect.disconnectNode);
 
-
         processesAlive -= disconnect.disconnectNode
+
+
+        //Promote process to Active View from Passive View
         promoteProcessToActiveView(disconnect.disconnectNode);
       }
     }
 
-    case nodeFailure : PartialView.NodeFailure => {
-      activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress));
-      //promoteProcessToActiveView();
-    }
 
     case getPeers: PartialView.getPeers => {
       val peers = activeView.splitAt(getPeers.fanout)
@@ -115,7 +115,7 @@ class PartialView extends Actor with Timers
 
     case verify : Verify => {
 
-      sender ! ImHere (verify.node)
+      sender ! ImHere (verify.nodeAddress)
 
     }
 
@@ -130,7 +130,7 @@ class PartialView extends Actor with Timers
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sender.path.address.toString -> timer)
 
-      val process = context.actorSelection(s"${imHere.node}/user/partialView")
+      val process = context.actorSelection(s"${imHere.nodeAddress}/user/partialView")
       process ! SendLiveMessage(sender.path.address.toString)
 
     }
@@ -147,6 +147,8 @@ class PartialView extends Actor with Timers
 
 }
 
+
+
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
       if(activeView.size == activeViewThreshold){
@@ -154,6 +156,7 @@ class PartialView extends Actor with Timers
       }
       activeView = activeView :+ node
     }
+    //TODO : add to processesAlive
   }
 
   def dropRandomNodeActiveView() = {
@@ -190,6 +193,7 @@ class PartialView extends Actor with Timers
   }
 
   def rUAlive(n : String): Unit ={
+
     processesAlive -= n
     val timer: Double = System.currentTimeMillis()
 
@@ -223,9 +227,37 @@ class PartialView extends Actor with Timers
 
   }
 
-  def searchFailedNodes() = {
+  def permanentFailure(n: String) = {
+
+    processesAlive -= n
+    uAlive -= n
+
+
+    activeView = activeView.filter(!_.equals(n))
+    passiveView = passiveView.filter(!_.equals(n))
+    //TODO : send message to all saying node has failed permanently
 
   }
+
+  def searchFailedProcesses() = {
+
+    for ((n, t) <- processesAlive) {
+
+      // 5 seconds heartbeat
+      if ((System.currentTimeMillis() - t) >= 5000) {
+        rUAlive(n)
+      }
+    }
+
+    for ((n, t) <- uAlive) {
+      // more than 10 seconds
+      if ((System.currentTimeMillis() - t) >= 10000) {
+        permanentFailure(n)
+      }
+    }
+  }
+
+
 
 
 }
@@ -233,9 +265,9 @@ class PartialView extends Actor with Timers
 object PartialView{
   val props = Props[PartialView]
 
-  case class Verify(node: String)
+  case class Verify(nodeAddress: String)
 
-  case class ImHere(node: String)
+  case class ImHere(nodeAddress: String)
 
   case class SendLiveMessage(n: String)
 
@@ -252,8 +284,6 @@ object PartialView{
   case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String);
 
   case class Disconnect (disconnectNode: String);
-
-  case class NodeFailure(nodeAddress: String);
 
   case class getPeers(fanout: Integer);
 
