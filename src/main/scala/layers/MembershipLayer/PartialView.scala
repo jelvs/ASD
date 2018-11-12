@@ -1,7 +1,7 @@
 package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
-import layers.MembershipLayer.PartialView.{AddNew, askToPromote}
+import layers.MembershipLayer.PartialView._
 
 import scala.util.Random
 
@@ -17,6 +17,8 @@ class PartialView extends Actor with Timers
   val ARWL = 5; //Active Random Walk Length
   val PRWL = 5; //Passive Random Walk Length
   var processesAlive = Map[String, Double]()
+  var uAlive = Map[String, Double]()
+
 
   override def receive = {
     case message: PartialView.Init => {
@@ -89,13 +91,48 @@ class PartialView extends Actor with Timers
 
     }
 
+    case uThere: UThere => {
+      val timer: Double = System.currentTimeMillis()
+      uAlive += ( uThere.n -> timer )
+
+      val process = context.actorSelection(s"${uThere.n}/user/partialView")
+      process ! Verify(sender.path.address.toString)
+    }
+
+
+    case verify : Verify => {
+
+      sender ! ImHere (verify.node)
+
+    }
+
+
     case addNewtoActive: AddNew => {
       addNodeActiveView(sender.path.address.toString)
     }
 
+    case imHere: ImHere => {
+      uAlive -= sender.path.address.toString
+
+      val timer: Double = System.currentTimeMillis()
+      processesAlive += (sender.path.address.toString -> timer)
+
+      val process = context.actorSelection(s"${imHere.node}/user/partialView")
+      process ! SendLiveMessage(sender.path.address.toString)
+
+    }
+
+    case sendLiveMessage: SendLiveMessage => {
+      val timer: Double = System.currentTimeMillis()
+      processesAlive += (sendLiveMessage.n -> timer)
+    }
 
 
-  }
+
+
+
+
+}
 
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
@@ -139,6 +176,16 @@ class PartialView extends Actor with Timers
     }
   }
 
+  def rUAlive(n : String): Unit ={
+    processesAlive -= n
+    val timer: Double = System.currentTimeMillis()
+
+    for(n <- activeView){
+      var process = context.actorSelection(s"${n}/user/partialView")
+      process ! UThere(n)
+    }
+  }
+
   def askPassiveToPromote(disconnectedNode: String): Unit ={
 
     val nodePromote = Random.shuffle(passiveView.filter(node => !node.equals(disconnectedNode)
@@ -165,6 +212,14 @@ class PartialView extends Actor with Timers
 
 object PartialView{
   val props = Props[PartialView]
+
+  case class Verify(node: String)
+
+  case class ImHere(node: String)
+
+  case class SendLiveMessage(n: String)
+
+  case class UThere(n : String)
 
   case class AddNew()
 
