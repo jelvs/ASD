@@ -69,8 +69,9 @@ class PublishSubscribe  extends Actor
     }
 
     case broadCastDeliver: BroadCastDeliver =>{
-      //TODO
-
+      //TODO : acabar
+      val message = ()
+      val interestedNei = neighborSubscriptions(broadCastDeliver.message)
 
 
     }
