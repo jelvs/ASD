@@ -1,7 +1,7 @@
 package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
-
+import layers.MembershipLayer.PartialView.{AddNew, askToPromote}
 
 import scala.util.Random
 
@@ -9,10 +9,10 @@ class PartialView extends Actor with Timers
 {
   val SYSTEM_NAME = "node";
   val ACTOR_NAME = "/user/PartialView"; //é actor name?
-  var ownAddress : String = null ; //actor ref
+  var ownAddress : String = "" ; //actor ref
   var activeView: List[String] = List.empty; //list of node@host:port
   var passiveView: List[String] = List.empty;
-  val activeViewThreshold = 6;
+  val activeViewThreshold = 4;
   val passiveViewThreashold = 35;
   val ARWL = 5; //Active Random Walk Length
   val PRWL = 5; //Passive Random Walk Length
@@ -60,12 +60,13 @@ class PartialView extends Actor with Timers
 
 
         processesAlive -= disconnect.disconnectNode
+        promoteProcessToActiveView(disconnect.disconnectNode);
       }
     }
 
     case nodeFailure : PartialView.NodeFailure => {
       activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress));
-      promoteProcessToActiveView();
+      //promoteProcessToActiveView();
     }
 
     case getPeers: PartialView.getPeers => {
@@ -80,6 +81,18 @@ class PartialView extends Actor with Timers
         processesAlive += (sender.path.address.toString -> timer)
       }
     }
+
+    case askToPromote() => {
+
+        promoteProcessToActiveView(sender.path.address.toString)
+
+
+    }
+
+    case addNewtoActive: AddNew => {
+      addNodeActiveView(sender.path.address.toString)
+    }
+
 
 
   }
@@ -126,7 +139,25 @@ class PartialView extends Actor with Timers
     }
   }
 
-  def promoteProcessToActiveView(): Unit ={
+  def askPassiveToPromote(disconnectedNode: String): Unit ={
+
+    val nodePromote = Random.shuffle(passiveView.filter(node => !node.equals(disconnectedNode)
+      || !node.equals(ownAddress))).head
+
+    if (nodePromote != null){
+      val process = context.actorSelection(s"${nodePromote}/user/partialView")
+
+        process ! askToPromote()
+
+    }
+
+  }
+
+  def promoteProcessToActiveView(newNode: String) = {
+    addNodeActiveView(newNode)
+    val process = context.actorSelection(s"${newNode}/user/partialView")
+    if (!activeView.contains(newNode) || !((newNode).equals(ownAddress)))
+      process ! AddNew()
 
 
   }
@@ -134,6 +165,8 @@ class PartialView extends Actor with Timers
 
 object PartialView{
   val props = Props[PartialView]
+
+  case class AddNew()
 
   case class Heartbeat()
 
@@ -148,5 +181,7 @@ object PartialView{
   case class NodeFailure(nodeAddress: String);
 
   case class getPeers(fanout: Integer);
+
+  case class askToPromote()
 }
 
