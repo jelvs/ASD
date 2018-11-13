@@ -9,6 +9,8 @@ import layers.MyDeadLetterListener
 
 object Process extends App {
 
+    val SYSTEM_NAME = "node"
+
     // Override the configuration of the port when specified as program argument
     val port = if (args.isEmpty) "0" else args(0);
     val config = ConfigFactory.parseString(
@@ -19,8 +21,7 @@ object Process extends App {
       .withFallback(ConfigFactory.load());
 
     //Creates an actor system -- this is actually a process
-    val process = ActorSystem("node", config);
-
+    val process = ActorSystem(SYSTEM_NAME, config);
 
     val listener = process.actorOf(Props[MyDeadLetterListener])
     process.eventStream.subscribe(listener, classOf[DeadLetter])
