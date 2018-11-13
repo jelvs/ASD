@@ -13,7 +13,7 @@ class PartialView extends Actor with Timers
 {
   val SYSTEM_NAME = "node";
   val ACTOR_NAME = "/user/PartialView"; //é actor name?
-  var ownAddress : String = "" ; //actor ref
+  var ownAddress : String = "" ; //actor re f
   var activeView: List[String] = List.empty; //list of node@host:port
   var passiveView: List[String] = List.empty;
   val activeViewThreshold = 4;
@@ -85,9 +85,12 @@ class PartialView extends Actor with Timers
 
 
     case getPeers: PartialView.getPeers => {
-      val peers = activeView.splitAt(getPeers.fanout)
-      sender ! peers;
+      val split_Value : Int = math.min(getPeers.fanout, activeView.size)
+      val peers = activeView.splitAt(split_Value)
+      sender ! peers
     }
+
+  
 
     case heartbeat: PartialView.Heartbeat => {
       //println("heartbeat from: " + sender.path.address.toString)
