@@ -13,7 +13,7 @@ class PartialView extends Actor with Timers
 {
   val AKKA_IP_PREPEND  = "akka.tcp://"
   val SYSTEM_NAME = "node"
-  val ACTOR_NAME = "/user/PartialView" //é actor name?
+  val ACTOR_NAME = "/user/PartialView"
   var ownAddress : String = "" //actor re f
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
@@ -66,8 +66,8 @@ class PartialView extends Actor with Timers
           addNodePassiveView(forwardJoin.newNode)
         }
 
-        val neighborAdress : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head
-        val neighborMembershipActor = context.actorSelection(AKKA_IP_PREPEND.concat(neighborAdress.concat(ACTOR_NAME)))
+        val neighborAddress : String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.senderAddress))).head
+        val neighborMembershipActor = context.actorSelection(AKKA_IP_PREPEND.concat(neighborAddress.concat(ACTOR_NAME)))
         neighborMembershipActor ! PartialView.ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, forwardJoin.senderAddress)
       }
     }
@@ -77,7 +77,7 @@ class PartialView extends Actor with Timers
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
 
         addNodePassiveView(disconnect.disconnectNode)
-        //processesAlive -= disconnect.disconnectNode
+        processesAlive -= disconnect.disconnectNode
 
       }
     }
@@ -169,7 +169,7 @@ class PartialView extends Actor with Timers
 
 
     case heartbeat: PartialView.Heartbeat => {
-      //println("heartbeat from: " + sender.path.address.toString)
+      println("heartbeat from: " + sender.path.address.toString)
       var timer: Double = System.currentTimeMillis()
       if (processesAlive.contains(sender.path.address.toString)) {
         processesAlive += (sender.path.address.toString -> timer)
