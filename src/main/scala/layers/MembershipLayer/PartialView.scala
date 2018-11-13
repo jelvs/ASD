@@ -74,6 +74,7 @@ class PartialView extends Actor with Timers
     case disconnect: PartialView.Disconnect => {
       if (activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
+
         addNodePassiveView(disconnect.disconnectNode)
         //processesAlive -= disconnect.disconnectNode
 
@@ -89,16 +90,42 @@ class PartialView extends Actor with Timers
       sender ! peers
     }
 
-    /*case heartbeat: PartialView.Heartbeat => {
-      //println("heartbeat from: " + sender.path.address.toString)
-      var timer: Double = System.currentTimeMillis()
-      if (processesAlive.contains(sender.path.address.toString)) {
-        processesAlive += (sender.path.address.toString -> timer)
-      }
-    }*/
 
-    case askToPromote() => {
-        promoteProcessToActiveView(sender.path.address.toString)
+
+    case askToPromote(priority) => {
+
+      if(priority.equals("High")){
+          promoteProcessToActiveView(sender.path.address.toString)
+      }else{
+        if(activeView.size < activeViewThreshold){
+          promoteProcessToActiveView(sender.path.address.toString)
+        }
+
+      }
+
+    }
+
+
+
+    case addNewtoActive: AddNew => {
+      addNodeActiveView(sender.path.address.toString)
+    }
+
+    case nodeFailure : PartialView.NodeFailure => {
+      //activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress))
+      permanentFailure(nodeFailure.nodeAddress)
+      askPassiveToPromote(nodeFailure.nodeAddress)
+    }
+
+
+
+    case receiveRefreshSendPassive: ReceiveRefreshSendPassive =>{
+      receiveRefreshSendPassive(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh )
+    }
+
+    case receiveRefreshPassive: ReceiveRefreshPassive =>{
+      receiveRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh )
+
     }
 
 
@@ -119,14 +146,7 @@ class PartialView extends Actor with Timers
     }*/
 
 
-    case addNewtoActive: AddNew => {
-      addNodeActiveView(sender.path.address.toString)
-    }
 
-    case nodeFailure : PartialView.NodeFailure => {
-      activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress))
-      askPassiveToPromote(nodeFailure.nodeAddress)
-    }
 
     /*case imHere: ImHere => {
       uAlive -= sender.path.address.toString
@@ -145,23 +165,23 @@ class PartialView extends Actor with Timers
     }*/
 
 
-    /*case sendRandomRefreshPassive: SendRefreshPassive => {
 
 
+    /*case heartbeat: PartialView.Heartbeat => {
+      //println("heartbeat from: " + sender.path.address.toString)
+      var timer: Double = System.currentTimeMillis()
+      if (processesAlive.contains(sender.path.address.toString)) {
+        processesAlive += (sender.path.address.toString -> timer)
+      }
     }*/
 
 
-    case receiveRefreshSendPassive: ReceiveRefreshSendPassive =>{
-      receiveRefreshSendPassive(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh )
-    }
-
-    case receiveRefreshPassive: ReceiveRefreshPassive =>{
-      receiveRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh )
-
-    }
-
   }
 
+  /*case sendRandomRefreshPassive: SendRefreshPassive => {
+
+
+    }*/
 
 
   def receiveRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) ={
@@ -208,12 +228,6 @@ class PartialView extends Actor with Timers
 
 
 
-
-
-
-
-
-
   }
 
   def addNodeActiveView(node: String) = {
@@ -226,11 +240,7 @@ class PartialView extends Actor with Timers
     //addAlive(node)
   }
 
-  /*def addAlive(node: String) = {
 
-    val timer: Double = System.currentTimeMillis()
-    processesAlive += (node -> timer)
-  }*/
 
 
   def dropRandomNodeActiveView() = {
@@ -252,32 +262,15 @@ class PartialView extends Actor with Timers
     }
   }
 
-  def dropRandomNodePassiveView(): Unit ={
+  def dropRandomNodePassiveView() ={
 
-    val remoteProcessAdress : String = Random.shuffle(passiveView).head;
-    passiveView = passiveView.filter(!_.equals(remoteProcessAdress));
+    val remoteProcessAddress : String = Random.shuffle(passiveView).head;
+    passiveView = passiveView.filter(!_.equals(remoteProcessAddress));
 
   }
 
-  /*def initHeartbeat() = {
-    for (h <- activeView) {
-      var process = context.actorSelection(s"${h}/user/partialView")
-      process ! PartialView.Heartbeat()
-    }
-  }*/
 
-  /*def rUAlive(n : String): Unit ={
-
-    processesAlive -= n
-    val timer: Double = System.currentTimeMillis()
-
-    for(n <- activeView){
-      var process = context.actorSelection(s"${n}/user/partialView")
-      process ! UThere(n)
-    }
-  }*/
-
-  def askPassiveToPromote(disconnectedNode: String): Unit ={
+  def askPassiveToPromote(disconnectedNode: String) ={
 
     val nodePromote = Random.shuffle(passiveView.filter(node => !node.equals(disconnectedNode)
       || !node.equals(ownAddress))).head
@@ -285,7 +278,15 @@ class PartialView extends Actor with Timers
     if (nodePromote != null){
       val process = context.actorSelection(s"${nodePromote}/user/partialView")
 
-        process ! askToPromote()
+      //TODO NOT Quiet Done
+
+
+      if (activeView.length == 0) {
+        process ! askToPromote("High")
+      } else {
+
+        process ! askToPromote("Low")
+      }
 
     }
 
@@ -301,17 +302,14 @@ class PartialView extends Actor with Timers
 
   }
 
-  def permanentFailure(n: String) = {
+  def permanentFailure(nodeAddress: String) = {
 
+    activeView = activeView.filter(!_.equals(nodeAddress))
+    passiveView = passiveView.filter(!_.equals(nodeAddress))
 
+    val process = context.actorSelection(s"${nodeAddress}/user/plummtree")
 
-
-    activeView = activeView.filter(!_.equals(n))
-    passiveView = passiveView.filter(!_.equals(n))
-
-    val process = context.actorSelection(s"${n}/user/plummtree")
-
-    process ! NeighborDown(n)
+    process ! NeighborDown(nodeAddress)
 
 
 
@@ -333,6 +331,30 @@ class PartialView extends Actor with Timers
         permanentFailure(n)
       }
     }
+  }*/
+
+  /*def initHeartbeat() = {
+    for (h <- activeView) {
+      var process = context.actorSelection(s"${h}/user/partialView")
+      process ! PartialView.Heartbeat()
+    }
+  }*/
+
+  /*def rUAlive(n : String): Unit ={
+
+    processesAlive -= n
+    val timer: Double = System.currentTimeMillis()
+
+    for(n <- activeView){
+      var process = context.actorSelection(s"${n}/user/partialView")
+      process ! UThere(n)
+    }
+  }*/
+
+  /*def addAlive(node: String) = {
+
+    val timer: Double = System.currentTimeMillis()
+    processesAlive += (node -> timer)
   }*/
 
 
@@ -373,6 +395,6 @@ object PartialView{
 
   case class getPeers(fanout: Integer);
 
-  case class askToPromote()
+  case class askToPromote(priority : String)
 }
 
