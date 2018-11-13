@@ -2,7 +2,7 @@ package layers.EpidemicBroadcastTree
 
 import scala.util.control.Breaks._
 import java.io.{ByteArrayOutputStream, ObjectOutputStream}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.pattern.ask
 import akka.actor.{Actor, ActorRef, Props, Timers}
@@ -15,7 +15,11 @@ import scala.concurrent.duration.FiniteDuration
 
 class MainPlummtree extends Actor with Timers {
 
+  val AKKA_IP_PREPEND  = "akka.tcp://"
   val ACTOR_NAME: String = "/user/MainPlummtree"
+  val PUBLISH_SUBSCRIBE_ACTOR_NAME = "/user/PublishSubscribe"
+  val PARTIAL_VIEW_ACTOR_NAME = "/user/PartialView"
+  val FANOUT = 4
 
   var eagerPushPeers: List[String] = List.empty
   var lazyPushPeers: List[String] = List.empty
@@ -23,40 +27,40 @@ class MainPlummtree extends Actor with Timers {
   var missing: List[IHave] = List.empty
   var receivedMessages: List[Int] = List.empty
   //var partialViewRef:ActorRef
-  val fanout = 4
-  var ownAddress: String = ""
 
+  var ownAddress: String = ""
 
 
   override def receive: PartialFunction[Any, Unit] = {
 
     case _: MainPlummtree.Init => {
-      this.ownAddress = self.path.address.hostPort //returns as node@host:port
-      implicit val timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
-      val future = context.actorSelection("/user/PartialView").resolveOne()
-      val partialViewRef: ActorRef = Await.result(future, timeout.duration)
-      val future2 = partialViewRef ? getPeers(fanout)
-      eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
+     try {
+       ownAddress = self.path.address.hostPort //returns as node@host:port
+       implicit val timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
+       val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
+       val future2 = partialViewRef ? getPeers(FANOUT)
+       eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
+     }catch{
+       case TimeoutException => println("Foi tudo com o crlh ")
+     }
     }
 
     case broadCast: Broadcast => {
+      val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       val messageBytes = toByteArray(broadCast.message)
       val totalMessageBytes = messageBytes ++ ownAddress.getBytes
       val messageId = scala.util.hashing.MurmurHash3.bytesHash(totalMessageBytes)
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
-      //TODO: Deliver
+      publishSubscribeActor ! BroadCastDeliver(broadCast.message)
       receivedMessages = receivedMessages :+ messageId
     }
 
     case gossipReceive: GossipMessage => {
 
-      val actorRef = context.actorSelection(gossipReceive.sender + ACTOR_NAME)
-
       if (!receivedMessages.contains(gossipReceive.messageId)) {
-
-        val pubsubActor = context.actorSelection("/user/PublishSubscribe")
-        pubsubActor ! BroadCastDeliver(gossipReceive.message)
+        val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+        publishSubscribeActor ! BroadCastDeliver(gossipReceive.message)
         receivedMessages = receivedMessages :+ gossipReceive.messageId
 
         //TODO: Melhorar isto xD
@@ -67,23 +71,24 @@ class MainPlummtree extends Actor with Timers {
           }
         }
 
-        eagerPush(gossipReceive.message, gossipReceive.messageId, gossipReceive.round + 1, gossipReceive.sender)
-        lazyPush(gossipReceive.message, gossipReceive.messageId, gossipReceive.round + 1, gossipReceive.sender)
+        eagerPush(gossipReceive.message, gossipReceive.messageId, gossipReceive.round + 1, ownAddress)
+        lazyPush(gossipReceive.message, gossipReceive.messageId, gossipReceive.round + 1, ownAddress)
         eagerPushPeers = eagerPushPeers :+ gossipReceive.sender
         lazyPushPeers = lazyPushPeers.filter(!_.equals(gossipReceive.sender))
-        actorRef ! Optimization(gossipReceive.messageId, gossipReceive.round, gossipReceive.sender)
+        Optimization(gossipReceive.messageId, gossipReceive.round, gossipReceive.sender)
 
       }else{
+        val actorRef = context.actorSelection(gossipReceive.sender + ACTOR_NAME)
           eagerPushPeers = eagerPushPeers.filter(!_.equals(gossipReceive.sender))
           lazyPushPeers = lazyPushPeers :+ gossipReceive.sender
-          actorRef ! Prune(self.path.address.hostPort)
+          actorRef ! Prune(ownAddress)
       }
     }
 
     case iHave: IHave => {
       if(!receivedMessages.contains(iHave.messageId)){
         if(!timers.isTimerActive(iHave.messageId)) {
-          implicit val timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
+          implicit val timeout = Timeout(FiniteDuration(5, TimeUnit.SECONDS))
           val timeOutMessage = TimeOut(iHave.messageId)
           timers.startSingleTimer(iHave.messageId, timeOutMessage, timeout.duration)
         }
@@ -124,22 +129,6 @@ class MainPlummtree extends Actor with Timers {
       eagerPushPeers = eagerPushPeers :+ neighborUp.nodeAddress
     }
 
-    case optimization: Optimization => {
-
-      val missingMsg = getFirstAnnouncementForMessage(optimization.messageId)
-      if(missingMsg != null){
-        if( missingMsg.round < optimization.round ){
-          val actorRef = context.actorSelection(missingMsg.sender.concat(ACTOR_NAME))
-          val actor2Ref = context.actorSelection(optimization.sender.concat(ACTOR_NAME))
-          actorRef ! Graft(null, missingMsg.round, ownAddress)
-          actor2Ref ! Prune(ownAddress)
-
-        } //TODO: adicionar maximo
-
-      }
-
-    }
-
   }
 
   def getMessage(messageId: Int): GossipMessage ={
@@ -171,8 +160,8 @@ class MainPlummtree extends Actor with Timers {
 
   def eagerPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- eagerPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
-      actorRef ! GossipMessage(message, messageId, round, sender)
+      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
+      actorRef ! GossipMessage(message, messageId, round, ownAddress)
     }
   }
 
@@ -181,9 +170,8 @@ class MainPlummtree extends Actor with Timers {
     val ihave : IHave = IHave(messageId, round, sender)
     val heavyMessage : GossipMessage = GossipMessage(message,messageId,round,sender)
     lazyQueue = lazyQueue :+ heavyMessage
-
     for (peerAddress <- lazyPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
+      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
       actorRef ! ihave
     }
   }
@@ -196,19 +184,32 @@ class MainPlummtree extends Actor with Timers {
     var i : Int = 0
 
     while( (i < missing.size) || !done ){
-      i = i +1
-      val current = missing(2)
+      val current = missing(i)
       if(current.messageId == messageId) {
         lazyMessage = current
         done = true
       }
+      i = i+1
     }
 
     missing = missing.filter( _ != lazyMessage )
-
     return lazyMessage;
   }
 
+  def Optimization(messageId : Int, round: Int, sender: String) : Unit = {
+
+    val missingMsg = getFirstAnnouncementForMessage(messageId)
+    if(missingMsg != null){
+      if( missingMsg.round < round ){
+        val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(missingMsg.sender.concat(ACTOR_NAME)))
+        val actor2Ref = context.actorSelection(AKKA_IP_PREPEND.concat(sender.concat(ACTOR_NAME)))
+        actorRef ! Graft(null, missingMsg.round, ownAddress)
+        actor2Ref ! Prune(ownAddress)
+      } //TODO: adicionar maximo
+
+    }
+
+  }
 
 
   /*
