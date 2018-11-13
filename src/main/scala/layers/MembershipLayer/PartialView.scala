@@ -124,12 +124,6 @@ class PartialView extends Actor with Timers
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sendLiveMessage.n -> timer)
     }
-
-
-
-
-
-
 }
 
 
