@@ -26,7 +26,6 @@ class MainPlummtree extends Actor with Timers {
   var lazyQueue: List[GossipMessage] = List.empty
   var missing: List[IHave] = List.empty
   var receivedMessages: List[Int] = List.empty
-
   var ownAddress: String = ""
 
 
