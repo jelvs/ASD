@@ -34,7 +34,7 @@ class PartialView extends Actor with Timers
         this.ownAddress = self.path.address.hostPort
         remoteProcess ! PartialView.Join(message.ownAddress)
 
-        /*//TODO : Pending ( not sure if its done this way!! )
+        /*
         context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
         context.system.scheduler.schedule(0 seconds, 5 seconds)(searchFailedProcesses())*/
     }
@@ -71,6 +71,9 @@ class PartialView extends Actor with Timers
       }
     }
 
+
+
+
     case getPeers: PartialView.getPeers => {
       val split_Value : Int = math.min(getPeers.fanout, activeView.size)
       val peers = activeView.splitAt(split_Value)
@@ -88,6 +91,8 @@ class PartialView extends Actor with Timers
     case askToPromote() => {
         promoteProcessToActiveView(sender.path.address.toString)
     }
+
+
 
     /*case uThere: UThere => {
       val timer: Double = System.currentTimeMillis()
@@ -129,9 +134,77 @@ class PartialView extends Actor with Timers
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sendLiveMessage.n -> timer)
     }*/
+
+
+    /*case sendRandomRefreshPassive: SendRefreshPassive => {
+
+
+    }*/
+
+
+    case receiveRefreshSendPassive: ReceiveRefreshSendPassive =>{
+      receiveRefreshSendPassive(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh )
+    }
+
+    case receiveRefreshPassive: ReceiveRefreshPassive =>{
+      receiveRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh )
+
+    }
+
+  }
+
+
+
+  def receiveRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) ={
+    nodesToRefresh.foreach(newNode =>{
+      passiveView = passiveView :+ newNode;
+    })
+  }
+
+
+
+  def  sendRandomRefreshPassive(senderAddress : String) {
+
+    val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
+
+    val list : List[String] =
+      Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
+
+    list.foreach(node => {
+      passiveView.filter(!_.equals(node))
+    })
+
+    remoteProcess ! ReceiveRefreshSendPassive(ownAddress, list)
+
 }
 
+  def receiveRefreshSendPassive(senderAddress: String, nodesToRefresh: List[String])  ={
 
+    val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
+
+    val listToSend : List[String] =
+      Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
+      listToSend.foreach(node => {
+        passiveView.filter(!_.equals(node))
+        })
+
+    nodesToRefresh.foreach(newNode =>{
+      passiveView = passiveView :+ newNode;
+    })
+
+    remoteProcess ! ReceiveRefreshPassive(ownAddress, listToSend)
+
+
+
+
+
+
+
+
+
+
+
+  }
 
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
@@ -226,7 +299,7 @@ class PartialView extends Actor with Timers
 
     activeView = activeView.filter(!_.equals(n))
     passiveView = passiveView.filter(!_.equals(n))
-    //TODO : send message to all saying node has failed permanently
+
 
   }*/
 
@@ -255,6 +328,12 @@ class PartialView extends Actor with Timers
 
 object PartialView{
   val props = Props[PartialView]
+
+  case class ReceiveRefreshPassive(senderAddress : String, nodesToRefresh: List[String])
+
+  case class ReceiveRefreshSendPassive(senderAddress : String, nodesToRefresh: List[String])
+
+  //case class SendRefreshPassive(senderAddress : String)
 
   case class NodeFailure(nodeAddress: String);
 
