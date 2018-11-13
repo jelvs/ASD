@@ -1,10 +1,11 @@
 package app
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, DeadLetter, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.EpidemicBroadcastTree.MainPlummtree.Broadcast
 import layers.MembershipLayer.PartialView
+import layers.MyDeadLetterListener
 
 object Process extends App {
 
@@ -19,6 +20,10 @@ object Process extends App {
 
     //Creates an actor system -- this is actually a process
     val process = ActorSystem("node", config);
+
+
+    val listener = process.actorOf(Props[MyDeadLetterListener])
+    process.eventStream.subscribe(listener, classOf[DeadLetter])
 
     //Create new actor as child of this context
     val ownAddress = getOwnAddress(port.toInt);
