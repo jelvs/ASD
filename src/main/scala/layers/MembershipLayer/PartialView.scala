@@ -2,11 +2,11 @@ package layers.MembershipLayer
 
 import akka.actor.{Actor, Props, Timers}
 import layers.EpidemicBroadcastTree.MainPlummtree
-
+import layers.EpidemicBroadcastTree.MainPlummtree.{NeighborDown, NeighborUp}
 import layers.MembershipLayer.PartialView._
+
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import scala.util.Random
 
 class PartialView extends Actor with Timers
@@ -41,6 +41,11 @@ class PartialView extends Actor with Timers
 
     case join: PartialView.Join => {
       addNodeActiveView(join.newNodeAddress)
+
+      val process = context.actorSelection(s"${join.newNodeAddress}/user/plummtree")
+      process ! NeighborUp(join.newNodeAddress)
+
+
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
         val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(node.concat(ACTOR_NAME)))
         remoteProcess ! PartialView.ForwardJoin(join.newNodeAddress, ARWL, ownAddress)
@@ -51,6 +56,10 @@ class PartialView extends Actor with Timers
     case forwardJoin: PartialView.ForwardJoin => {
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         addNodeActiveView(forwardJoin.newNode)
+
+        val process = context.actorSelection(s"${forwardJoin.newNode}/user/plummtree")
+        process ! NeighborUp(forwardJoin.newNode)
+
       }else{
         if(forwardJoin.arwl == PRWL){
           addNodePassiveView(forwardJoin.newNode)
@@ -165,6 +174,7 @@ class PartialView extends Actor with Timers
 
   def  sendRandomRefreshPassive(senderAddress : String) {
 
+    //TODO not sure verify if nodes are up, ( TIMER to Send)
     val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
 
     val list : List[String] =
@@ -291,17 +301,21 @@ class PartialView extends Actor with Timers
 
   }
 
-  /*def permanentFailure(n: String) = {
+  def permanentFailure(n: String) = {
 
-    processesAlive -= n
-    uAlive -= n
+
 
 
     activeView = activeView.filter(!_.equals(n))
     passiveView = passiveView.filter(!_.equals(n))
 
+    val process = context.actorSelection(s"${n}/user/plummtree")
 
-  }*/
+    process ! NeighborDown(n)
+
+
+
+  }
 
   /*def searchFailedProcesses() = {
 
