@@ -11,7 +11,7 @@ object Process extends App {
     val SYSTEM_NAME = "node"
 
     // Override the configuration of the port when specified as program argument
-    val port = if (args.isEmpty) "0" else args(0)
+    val port = if (args.isEmpty) "2552" else args(0)
     val config = configure()
 
     //Creates an actor system -- this is actually a process
