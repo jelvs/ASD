@@ -77,7 +77,7 @@ class PartialView extends Actor with Timers
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
 
         addNodePassiveView(disconnect.disconnectNode)
-        //processesAlive -= disconnect.disconnectNode
+        processesAlive -= disconnect.disconnectNode
 
       }
     }
@@ -169,7 +169,7 @@ class PartialView extends Actor with Timers
 
 
     case heartbeat: PartialView.Heartbeat => {
-      //println("heartbeat from: " + sender.path.address.toString)
+      println("heartbeat from: " + sender.path.address.toString)
       var timer: Double = System.currentTimeMillis()
       if (processesAlive.contains(sender.path.address.toString)) {
         processesAlive += (sender.path.address.toString -> timer)
