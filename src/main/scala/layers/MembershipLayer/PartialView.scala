@@ -21,8 +21,9 @@ class PartialView extends Actor with Timers
   val passiveViewThreashold = 35
   val ARWL = 5; //Active Random Walk Length
   val PRWL = 5; //Passive Random Walk Length
-  //var processesAlive = Map[String, Double]()
-  //var uAlive = Map[String, Double]()
+  var anotherTry = Map[String, Double]()
+  var processesAlive = Map[String, Double]()
+  var uAlive = Map[String, Double]()
 
 
   override def receive = {
@@ -34,9 +35,9 @@ class PartialView extends Actor with Timers
         this.ownAddress = self.path.address.hostPort
         remoteProcess ! PartialView.Join(message.ownAddress)
 
-        /*
+
         context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
-        context.system.scheduler.schedule(0 seconds, 5 seconds)(searchFailedProcesses())*/
+        context.system.scheduler.schedule(0 seconds, 5 seconds)(searchFailedProcesses())
     }
 
     case join: PartialView.Join => {
@@ -130,25 +131,25 @@ class PartialView extends Actor with Timers
 
 
 
-    /*case uThere: UThere => {
+    case uThere: UThere => {
       val timer: Double = System.currentTimeMillis()
       uAlive += ( uThere.n -> timer )
 
       val process = context.actorSelection(s"${uThere.n}/user/partialView")
       process ! Verify(sender.path.address.toString)
-    }*/
+    }
 
 
-    /*case verify : Verify => {
+    case verify : Verify => {
 
       sender ! ImHere (verify.nodeAddress)
 
-    }*/
+    }
 
 
 
 
-    /*case imHere: ImHere => {
+    case imHere: ImHere => {
       uAlive -= sender.path.address.toString
 
       val timer: Double = System.currentTimeMillis()
@@ -157,23 +158,23 @@ class PartialView extends Actor with Timers
       val process = context.actorSelection(s"${imHere.nodeAddress}/user/partialView")
       process ! SendLiveMessage(sender.path.address.toString)
 
-    }*/
+    }
 
-    /*case sendLiveMessage: SendLiveMessage => {
+    case sendLiveMessage: SendLiveMessage => {
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sendLiveMessage.n -> timer)
-    }*/
+    }
 
 
 
 
-    /*case heartbeat: PartialView.Heartbeat => {
+    case heartbeat: PartialView.Heartbeat => {
       //println("heartbeat from: " + sender.path.address.toString)
       var timer: Double = System.currentTimeMillis()
       if (processesAlive.contains(sender.path.address.toString)) {
         processesAlive += (sender.path.address.toString -> timer)
       }
-    }*/
+    }
 
 
   }
@@ -237,7 +238,7 @@ class PartialView extends Actor with Timers
       }
       activeView = activeView :+ node
     }
-    //addAlive(node)
+    addAlive(node)
   }
 
 
@@ -278,7 +279,7 @@ class PartialView extends Actor with Timers
     if (nodePromote != null){
       val process = context.actorSelection(s"${nodePromote}/user/partialView")
 
-      //TODO NOT Quiet Done
+      //TODO : REVIEW
 
 
       if (activeView.length == 0) {
@@ -315,7 +316,7 @@ class PartialView extends Actor with Timers
 
   }
 
-  /*def searchFailedProcesses() = {
+  def searchFailedProcesses() = {
 
     for ((n, t) <- processesAlive) {
 
@@ -331,16 +332,16 @@ class PartialView extends Actor with Timers
         permanentFailure(n)
       }
     }
-  }*/
+  }
 
-  /*def initHeartbeat() = {
+  def initHeartbeat() = {
     for (h <- activeView) {
       var process = context.actorSelection(s"${h}/user/partialView")
       process ! PartialView.Heartbeat()
     }
-  }*/
+  }
 
-  /*def rUAlive(n : String): Unit ={
+  def rUAlive(n : String): Unit ={
 
     processesAlive -= n
     val timer: Double = System.currentTimeMillis()
@@ -349,13 +350,13 @@ class PartialView extends Actor with Timers
       var process = context.actorSelection(s"${n}/user/partialView")
       process ! UThere(n)
     }
-  }*/
+  }
 
-  /*def addAlive(node: String) = {
+  def addAlive(node: String) = {
 
     val timer: Double = System.currentTimeMillis()
     processesAlive += (node -> timer)
-  }*/
+  }
 
 
 
