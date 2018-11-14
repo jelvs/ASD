@@ -173,9 +173,6 @@ class PartialView extends Actor with Timers
 
     }
 
-
-
-
     case imHere: ImHere => {
       uAlive -= sender.path.address.toString
 
@@ -319,9 +316,7 @@ class PartialView extends Actor with Timers
 
         process ! askToPromote("Low")
       }
-
     }
-
   }
 
 
@@ -335,8 +330,6 @@ class PartialView extends Actor with Timers
   }
 
   def searchFailedProcesses() = {
-
-
 
     for ((n, t) <- processesAlive) {
 
