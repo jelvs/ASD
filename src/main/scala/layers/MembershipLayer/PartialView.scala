@@ -248,75 +248,7 @@ class PartialView extends Actor with Timers
     val timer: Double = System.currentTimeMillis()
     processesAlive += (node -> timer)
   }
-
-
-  /*
-  *
-  def searchFailedProcesses() = {
-
-    for ((n, t) <- processesAlive) {
-      // 5 seconds heartbeat
-      if ((System.currentTimeMillis() - t) >= 5000) {
-        println("Vou ver se este gajo morreu: " + n)
-        rUAlive(n)
-      }
-    }
-
-    for ((n, t) <- uAlive) {
-      // more than 10 seconds
-      if ((System.currentTimeMillis() - t) >= 7000 && !n.equals(ownAddress)) {
-        println("Enter permanent Failure process " + n)
-        permanentFailure(n)
-      }
-    }
-  }
-
-
-   def  sendRandomRefreshPassive() {
-
-    val neighbor : String = Random.shuffle(activeView).head;
-
-
-    val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
-
-    val list : List[String] =
-      Random.shuffle(passiveView.filter(node => !node.equals(neighbor) && !node.equals(ownAddress)).take(3))
-
-    list.foreach(node => {
-      passiveView.filter(!_.equals(node))
-    })
-
-    remoteProcess ! ReceiveRefreshSendPassive(ownAddress, list)
-
-}
-
-  def receiveToRefreshSend(senderAddress: String, nodesToRefresh: List[String])  ={
-
-    val remoteProcess = context.actorSelection(senderAddress.concat(ACTOR_NAME))
-
-    val listToSend : List[String] =
-      Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
-      listToSend.foreach(node => {
-        passiveView.filter(!_.equals(node))
-        })
-
-    nodesToRefresh.foreach(newNode =>{
-      passiveView = passiveView :+ newNode;
-    })
-
-    remoteProcess ! ReceiveRefreshPassive(ownAddress, listToSend)
-
-
-  }
-
-    def receiveToRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) ={
-    nodesToRefresh.foreach(newNode =>{
-      passiveView = passiveView :+ newNode;
-    })
-  }
-
-
-  * */
+  
 
 }
 
