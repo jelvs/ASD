@@ -11,7 +11,7 @@ import scala.util.Random
 
 class PartialView extends Actor with Timers
 {
-  val AKKA_IP_PREPEND  = "akka.tcp://"
+  //val AKKA_IP_PREPEND  = "akka.tcp://"
   val SYSTEM_NAME = "node"
   val ACTOR_NAME = "/user/PartialView"
   var ownAddress : String = "" //actor re f
@@ -21,7 +21,6 @@ class PartialView extends Actor with Timers
   val passiveViewThreashold = 35
   val ARWL = 5; //Active Random Walk Length
   val PRWL = 5; //Passive Random Walk Length
-  var anotherTry = Map[String, Double]()
   var processesAlive = Map[String, Double]()
   var uAlive = Map[String, Double]()
 
@@ -29,39 +28,65 @@ class PartialView extends Actor with Timers
   override def receive = {
 
 
+
     case message: PartialView.Init => {
 
-        val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(message.contactNode.concat(ACTOR_NAME)))  //node@host:port/user/PartialView
-        this.ownAddress = self.path.address.hostPort
-        remoteProcess ! Join(message.ownAddress)
+      if (!message.contactNode.equals("")) {
+
+        //      val contactNode = message.contactNode
+        val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
+
+        //        println("Process path: " + process.toString())
 
 
-        context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
-        context.system.scheduler.schedule(0 seconds, 5 seconds)(searchFailedProcesses())
+        process ! Join(message.ownAddress)
+
+        addNodeActiveView(message.contactNode)
+
+        //context.system.scheduler.schedule(0 seconds, 30 seconds)((sendRandomRefreshPassive()))
+      }
+
+      context.system.scheduler.schedule(0 seconds, 3 seconds)(initHeartbeat())
+
+      context.system.scheduler.schedule(0 seconds, 3 seconds)((searchFailedProcesses()))
+
+      //
+
+
+      /*
+      val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(message.contactNode.concat(ACTOR_NAME))) //node@host:port/user/PartialView
+      this.ownAddress = self.path.address.hostPort
+
+      if (message.contactNode != "first") {
+        val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(message.contactNode.concat(ACTOR_NAME))) //node@host:port/user/PartialView
+        remoteProcess ! PartialView.Join(message.ownAddress)
+      }*/
     }
 
 
-    case join: PartialView.Join => {
+    case join: Join => {
 
       addNodeActiveView(join.newNodeAddress)
 
-      val process = context.actorSelection(s"${sender.path.address.toString}/user/plummtree")
+      val process = context.actorSelection(s"${sender.path.address.toString}/user/Plummtree")
       process ! NeighborUp(join.newNodeAddress)
 
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
-        val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(node.concat(ACTOR_NAME)))
+        val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME))
 
         remoteProcess ! ForwardJoin(sender.path.address.toString, ARWL, ownAddress)
       })
     }
 
 
-    case forwardJoin: PartialView.ForwardJoin => {
+    case forwardJoin: ForwardJoin => {
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         addNodeActiveView(forwardJoin.newNode)
 
-        val process = context.actorSelection(s"${forwardJoin.newNode}/user/plummtree")
+        val process = context.actorSelection(s"${forwardJoin.newNode}/user/Plummtree")
+        val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborUp(forwardJoin.newNode)
+        process2 ! AddNew()
 
       }else{
         if(forwardJoin.arwl == PRWL){
@@ -69,16 +94,25 @@ class PartialView extends Actor with Timers
         }
 
 
-        val neighborAddress : String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
-          && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.senderAddress)))).head
+          val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
+            && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.senderAddress)))).head
 
 
-        val neighborMembershipActor = context.actorSelection(AKKA_IP_PREPEND.concat(neighborAddress.concat(ACTOR_NAME)))
-        neighborMembershipActor ! ForwardJoin(forwardJoin.newNode ,forwardJoin.arwl-1, forwardJoin.senderAddress)
-      }
+          val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
+
+
+          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, forwardJoin.senderAddress)
+
+
+        }
+
+
     }
 
-    case disconnect: PartialView.Disconnect => {
+
+
+
+    case disconnect: Disconnect => {
       if (activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
         addNodePassiveView(disconnect.disconnectNode)
@@ -93,7 +127,7 @@ class PartialView extends Actor with Timers
 
 
 
-    case getPeers: PartialView.getPeers => {
+    case getPeers: getPeers => {
       val split_Value : Int = math.min(getPeers.fanout, activeView.size)
       val peers = activeView.splitAt(split_Value)
       sender ! peers
@@ -144,7 +178,7 @@ class PartialView extends Actor with Timers
       val timer: Double = System.currentTimeMillis()
       uAlive += ( uThere.n -> timer )
 
-      val process = context.actorSelection(s"${uThere.n}/user/partialView")
+      val process = context.actorSelection(s"${uThere.n}/user/PartialView")
       process ! Verify(sender.path.address.toString)
     }
 
@@ -164,7 +198,7 @@ class PartialView extends Actor with Timers
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sender.path.address.toString -> timer)
 
-      val process = context.actorSelection(s"${imHere.nodeAddress}/user/partialView")
+      val process = context.actorSelection(s"${imHere.nodeAddress}/user/PartialView")
       process ! SendLiveMessage(sender.path.address.toString)
 
     }
@@ -177,8 +211,8 @@ class PartialView extends Actor with Timers
 
 
 
-    case heartbeat: PartialView.Heartbeat => {
-      println("heartbeat from: " + sender.path.address.toString)
+    case heartbeat: Heartbeat => {
+      //println("heartbeat from: " + sender.path.address.toString)
       var timer: Double = System.currentTimeMillis()
       if (processesAlive.contains(sender.path.address.toString)) {
         processesAlive += (sender.path.address.toString -> timer)
@@ -195,13 +229,15 @@ class PartialView extends Actor with Timers
 
 
 
-  def  sendRandomRefreshPassive(senderAddress : String) {
+  def  sendRandomRefreshPassive() {
+
+    val neighbor : String = Random.shuffle(activeView).head;
 
     //TODO not sure verify if nodes are up, ( TIMER to Send)
-    val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
+    val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
 
     val list : List[String] =
-      Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
+      Random.shuffle(passiveView.filter(node => !node.equals(neighbor) && !node.equals(ownAddress)).take(3))
 
     list.foreach(node => {
       passiveView.filter(!_.equals(node))
@@ -213,7 +249,7 @@ class PartialView extends Actor with Timers
 
   def receiveToRefreshSend(senderAddress: String, nodesToRefresh: List[String])  ={
 
-    val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
+    val remoteProcess = context.actorSelection(senderAddress.concat(ACTOR_NAME))
 
     val listToSend : List[String] =
       Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
@@ -246,6 +282,9 @@ class PartialView extends Actor with Timers
       activeView = activeView :+ node
     }
     addAlive(node)
+    println("active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
+
   }
 
 
@@ -253,7 +292,7 @@ class PartialView extends Actor with Timers
 
   def dropRandomNodeActiveView() = {
     val remoteProcessAdress : String = Random.shuffle(activeView).head //gives node@ip:port
-    val remoteActor = context.actorSelection(AKKA_IP_PREPEND.concat(remoteProcessAdress.concat(ACTOR_NAME)))
+    val remoteActor = context.actorSelection(remoteProcessAdress.concat(ACTOR_NAME))
 
 
     remoteActor ! Disconnect(ownAddress)
@@ -287,7 +326,7 @@ class PartialView extends Actor with Timers
       || !node.equals(ownAddress))).head
 
     if (nodePromote != null){
-      val process = context.actorSelection(s"${nodePromote}/user/partialView")
+      val process = context.actorSelection(s"${nodePromote}/user/PartialView")
       
 
       if (activeView.length == 0) {
@@ -304,27 +343,16 @@ class PartialView extends Actor with Timers
 
   def promoteProcessToActiveView(newNode: String) = {
     addNodeActiveView(newNode)
-    val process = context.actorSelection(s"${newNode}/user/partialView")
+    val process = context.actorSelection(s"${newNode}/user/PartialView")
     if (!activeView.contains(newNode) || !((newNode).equals(ownAddress)))
       process ! AddNew()
 
 
   }
 
-  def permanentFailure(nodeAddress: String) = {
-
-    activeView = activeView.filter(!_.equals(nodeAddress))
-    passiveView = passiveView.filter(!_.equals(nodeAddress))
-
-    val process = context.actorSelection(s"${nodeAddress}/user/plummtree")
-
-    process ! NeighborDown(nodeAddress)
-
-
-
-  }
-
   def searchFailedProcesses() = {
+
+
 
     for ((n, t) <- processesAlive) {
 
@@ -336,15 +364,40 @@ class PartialView extends Actor with Timers
 
     for ((n, t) <- uAlive) {
       // more than 10 seconds
-      if ((System.currentTimeMillis() - t) >= 10000) {
+
+      if ((System.currentTimeMillis() - t) >= 7000) {
         permanentFailure(n)
+
+
       }
     }
   }
 
+  def permanentFailure(nodeAddress: String) = {
+
+
+    activeView = activeView.filter(!_.equals(nodeAddress))
+    passiveView = passiveView.filter(!_.equals(nodeAddress))
+
+
+
+    println("node : " + nodeAddress)
+    println("new active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
+
+
+    val process = context.actorSelection(s"${nodeAddress}/user/Plummtree")
+    process ! NeighborDown(nodeAddress)
+
+
+
+  }
+
+
+
   def initHeartbeat() = {
     for (h <- activeView) {
-      var process = context.actorSelection(s"${h}/user/partialView")
+      var process = context.actorSelection(s"${h}/user/PartialView")
       process ! Heartbeat()
     }
   }
@@ -355,7 +408,7 @@ class PartialView extends Actor with Timers
     val timer: Double = System.currentTimeMillis()
 
     for(n <- activeView){
-      var process = context.actorSelection(s"${n}/user/partialView")
+      var process = context.actorSelection(s"${n}/user/PartialView")
       process ! UThere(n)
     }
   }

@@ -39,7 +39,7 @@ class MainPlummtree extends Actor with Timers {
         val future2 = partialViewRef ? getPeers(FANOUT)
         eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
       }catch{
-        case timeout : Timeout => println("Foi tudo com o crlh ")
+        case timeout : TimeoutException => println("Foi tudo com o crlh ")
       }
 
     case broadCast: Broadcast =>

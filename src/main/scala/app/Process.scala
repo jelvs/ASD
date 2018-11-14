@@ -8,7 +8,49 @@ import layers.MembershipLayer.PartialView
 
 object Process extends App {
 
-    val SYSTEM_NAME = "node"
+    var port = 2552
+    if (args.length != 0) {
+        port = args(0).toInt
+    }
+
+    val config = configure()
+    val system = ActorSystem("SystemName", config)
+    val ownAddress = getOwnAddress(port)
+    val partialView = system.actorOf(Props[PartialView], "PartialView")
+    val plummtree = system.actorOf(Props[MainPlummtree], "Plummtree")
+
+    var contactNode = ""
+    if (args.length > 1) {
+        contactNode = args(1)
+    }
+
+    println(ownAddress)
+
+
+    partialView ! PartialView.Init(ownAddress, contactNode)
+
+
+    //    println("Contact Node: " + contactNode)
+
+
+    def configure(): Config = {
+
+        ConfigFactory.load.getConfig("Process").withValue("akka.remote.netty.tcp.port",
+            ConfigValueFactory.fromAnyRef(port))
+
+    }
+
+    def getOwnAddress(port: Int) = {
+        val address = config.getAnyRef("akka.remote.netty.tcp.hostname")
+        val port = config.getAnyRef("akka.remote.netty.tcp.port")
+
+        s"akka.tcp://${system.name}@${address}:${port}"
+    }
+
+
+
+
+    /*val SYSTEM_NAME = "node"
 
     // Override the configuration of the port when specified as program argument
     val port = if (args.isEmpty) "2552" else args(0)
@@ -31,7 +73,7 @@ object Process extends App {
 
 
     def configure(): Config = {
-        ConfigFactory.load.getConfig("Operation").withValue("akka.remote.netty.tcp.port",
+        ConfigFactory.load.getConfig("Process").withValue("akka.remote.netty.tcp.port",
             ConfigValueFactory.fromAnyRef(port))
     }
 
@@ -42,5 +84,6 @@ object Process extends App {
 
       s"akka.tcp://${process.name}@${address}:${port}"
     }
-
+*/
 }
+
