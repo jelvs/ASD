@@ -33,14 +33,12 @@ class PartialView extends Actor with Timers
 
       if (!message.contactNode.equals("")) {
 
-        //      val contactNode = message.contactNode
+        //val contactNode = message.contactNode
         val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
 
-        //        println("Process path: " + process.toString())
-
+        //println("Process path: " + process.toString())
 
         process ! Join(message.ownAddress)
-
         addNodeActiveView(message.contactNode)
 
         //context.system.scheduler.schedule(0 seconds, 30 seconds)((sendRandomRefreshPassive()))
@@ -50,17 +48,6 @@ class PartialView extends Actor with Timers
 
       context.system.scheduler.schedule(0 seconds, 3 seconds)((searchFailedProcesses()))
 
-      //
-
-
-      /*
-      val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(message.contactNode.concat(ACTOR_NAME))) //node@host:port/user/PartialView
-      this.ownAddress = self.path.address.hostPort
-
-      if (message.contactNode != "first") {
-        val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(message.contactNode.concat(ACTOR_NAME))) //node@host:port/user/PartialView
-        remoteProcess ! PartialView.Join(message.ownAddress)
-      }*/
     }
 
 
@@ -73,7 +60,6 @@ class PartialView extends Actor with Timers
 
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
         val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME))
-
         remoteProcess ! ForwardJoin(sender.path.address.toString, ARWL, ownAddress)
       })
     }
@@ -83,10 +69,10 @@ class PartialView extends Actor with Timers
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         addNodeActiveView(forwardJoin.newNode)
 
-        val process = context.actorSelection(s"${forwardJoin.newNode}/user/Plummtree")
+        val process = context.actorSelection(s"${forwardJoin.newNode}/user/Plummtree") //nao é isto tira o f.newnode
         val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborUp(forwardJoin.newNode)
-        process2 ! AddNew()
+        process2 ! AddNew() //porque nao neighbor up?
 
       }else{
         if(forwardJoin.arwl == PRWL){
@@ -97,12 +83,10 @@ class PartialView extends Actor with Timers
           val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
             && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.senderAddress)))).head
 
-
           val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
 
 
-          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, forwardJoin.senderAddress)
-
+          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, forwardJoin.senderAddress) //isto ta mal
 
         }
 
@@ -119,7 +103,7 @@ class PartialView extends Actor with Timers
 
         processesAlive -= disconnect.disconnectNode
 
-        askPassiveToPromote(disconnect.disconnectNode)
+        askPassiveToPromote(disconnect.disconnectNode) //acho que nao é preciso
 
       }
     }
