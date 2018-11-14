@@ -69,7 +69,7 @@ class PartialView extends Actor with Timers
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         addNodeActiveView(forwardJoin.newNode)
 
-        val process = context.actorSelection(s"${forwardJoin.newNode}/user/Plummtree") //nao é isto tira o f.newnode
+        val process = context.actorSelection("/user/Plummtree") //nao é isto tira o f.newnode
         val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborUp(forwardJoin.newNode)
         process2 ! AddNew() //porque nao neighbor up?
@@ -86,7 +86,7 @@ class PartialView extends Actor with Timers
           val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
 
 
-          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, forwardJoin.senderAddress) //isto ta mal
+          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, ownAddress)
 
         }
 
@@ -101,9 +101,9 @@ class PartialView extends Actor with Timers
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
         addNodePassiveView(disconnect.disconnectNode)
 
-        processesAlive -= disconnect.disconnectNode
+        //processesAlive -= disconnect.disconnectNode
 
-        askPassiveToPromote(disconnect.disconnectNode) //acho que nao é preciso
+        //askPassiveToPromote(disconnect.disconnectNode) //acho que nao é preciso
 
       }
     }
@@ -169,7 +169,7 @@ class PartialView extends Actor with Timers
 
     case verify : Verify => {
 
-      sender ! ImHere (verify.nodeAddress)
+      sender ! ImHere(verify.nodeAddress)
 
     }
 
@@ -342,6 +342,7 @@ class PartialView extends Actor with Timers
 
       // 5 seconds heartbeat
       if ((System.currentTimeMillis() - t) >= 5000) {
+        println("Enter permanent Failure process " + n)
         rUAlive(n)
       }
     }
@@ -349,7 +350,8 @@ class PartialView extends Actor with Timers
     for ((n, t) <- uAlive) {
       // more than 10 seconds
 
-      if ((System.currentTimeMillis() - t) >= 7000) {
+      if ((System.currentTimeMillis() - t) >= 7000 && !n.equals(ownAddress)) {
+        println("Enter permanent Failure process " + n)
         permanentFailure(n)
 
 
@@ -364,8 +366,9 @@ class PartialView extends Actor with Timers
     passiveView = passiveView.filter(!_.equals(nodeAddress))
 
 
-
     println("node : " + nodeAddress)
+
+
     println("new active View : ")
     activeView.foreach(aView => println("\t" + aView.toString))
 
@@ -386,9 +389,9 @@ class PartialView extends Actor with Timers
     }
   }
 
-  def rUAlive(n : String): Unit ={
+  def rUAlive(n : String) ={
 
-    processesAlive -= n
+    //processesAlive -= n
     val timer: Double = System.currentTimeMillis()
 
     for(n <- activeView){
@@ -414,8 +417,6 @@ object PartialView{
   case class ReceiveRefreshPassive(senderAddress : String, nodesToRefresh: List[String])
 
   case class ReceiveRefreshSendPassive(senderAddress : String, nodesToRefresh: List[String])
-
-  //case class SendRefreshPassive(senderAddress : String)
 
   case class NodeFailure(nodeAddress: String);
 
