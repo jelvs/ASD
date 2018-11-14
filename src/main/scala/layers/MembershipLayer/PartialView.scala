@@ -129,11 +129,12 @@ class PartialView extends Actor with Timers
 
 
     case receiveRefreshSendPassive: ReceiveRefreshSendPassive =>{
-      receiveRefreshSendPassive(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh )
+
+      receiveToRefreshSend(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh )
     }
 
     case receiveRefreshPassive: ReceiveRefreshPassive =>{
-      receiveRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh )
+      receiveToRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh )
 
     }
 
@@ -193,13 +194,6 @@ class PartialView extends Actor with Timers
     }*/
 
 
-  def receiveRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) ={
-    nodesToRefresh.foreach(newNode =>{
-      passiveView = passiveView :+ newNode;
-    })
-  }
-
-
 
   def  sendRandomRefreshPassive(senderAddress : String) {
 
@@ -217,7 +211,7 @@ class PartialView extends Actor with Timers
 
 }
 
-  def receiveRefreshSendPassive(senderAddress: String, nodesToRefresh: List[String])  ={
+  def receiveToRefreshSend(senderAddress: String, nodesToRefresh: List[String])  ={
 
     val remoteProcess = context.actorSelection(AKKA_IP_PREPEND.concat(senderAddress.concat(ACTOR_NAME)))
 
@@ -234,10 +228,15 @@ class PartialView extends Actor with Timers
     remoteProcess ! ReceiveRefreshPassive(ownAddress, listToSend)
 
 
-
-
-
   }
+
+
+  def receiveToRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) ={
+    nodesToRefresh.foreach(newNode =>{
+      passiveView = passiveView :+ newNode;
+    })
+  }
+
 
   def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {

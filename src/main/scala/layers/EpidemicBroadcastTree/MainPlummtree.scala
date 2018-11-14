@@ -39,7 +39,7 @@ class MainPlummtree extends Actor with Timers {
         val future2 = partialViewRef ? getPeers(FANOUT)
         eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
       }catch{
-        case TimeoutException => println("Foi tudo com o crlh ")
+        case timeout : Timeout => println("Foi tudo com o crlh ")
       }
 
     case broadCast: Broadcast =>
@@ -192,7 +192,7 @@ class MainPlummtree extends Actor with Timers {
       if( missingMsg.round < round ){
         val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(missingMsg.sender.concat(ACTOR_NAME)))
         val actor2Ref = context.actorSelection(AKKA_IP_PREPEND.concat(sender.concat(ACTOR_NAME)))
-        actorRef ! Graft(null, missingMsg.round, ownAddress)
+        actorRef ! Graft(-1, missingMsg.round, ownAddress)
         actor2Ref ! Prune(ownAddress)
       } //TODO: adicionar maximo
 
