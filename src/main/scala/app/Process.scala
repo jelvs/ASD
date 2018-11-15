@@ -36,17 +36,6 @@ object Process extends App {
     partialView ! PartialView.Init(ownAddress, contactNode)
 
 
-    //Use system's dispatcher as ExecutionContext
-    import system.dispatcher
-
-    //This will schedule to send the Tick-message
-    //to the tickActor after 0ms repeating every 50ms
-    val heartbeatMessage = HeartbeatProcedure
-    val cancellable = system.scheduler.schedule(FiniteDuration(10, TimeUnit.SECONDS), FiniteDuration(35, TimeUnit.SECONDS) , partialView ,heartbeatMessage)
-
-    //    println("Contact Node: " + contactNode)
-
-
     def configure(): Config = {
 
         ConfigFactory.load.getConfig("Process").withValue("akka.remote.netty.tcp.port",

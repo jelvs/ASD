@@ -30,7 +30,6 @@ class MainPlummtree extends Actor with Timers {
 
 
   override def receive: PartialFunction[Any, Unit] = {
-
     case init: MainPlummtree.Init =>
       printf("A iniciar\n")
       var done : Boolean = false
