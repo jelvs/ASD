@@ -38,7 +38,7 @@ class PartialView extends Actor with Timers {
 
         //println("Process path: " + process.toString())
 
-        process ! Join()
+        process ! Join(ownAddress : String, message.contactNode : String)
         addNodeActiveView(message.contactNode)
 
         context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
@@ -145,15 +145,14 @@ class PartialView extends Actor with Timers {
       addNodeActiveView(sender.path.address.toString)
     }
 
-    case nodeFailure: PartialView.NodeFailure => {
+    /*case nodeFailure: PartialView.NodeFailure => {
       //activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress))
       permanentFailure(nodeFailure.nodeAddress)
       askPassiveToPromote(nodeFailure.nodeAddress)
-    }
+    }*/
 
 
     case receiveRefreshSendPassive: ReceiveRefreshSendPassive => {
-
       receiveToRefreshSend(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh)
     }
 
@@ -408,7 +407,7 @@ object PartialView {
 
   case class ReceiveRefreshSendPassive(senderAddress: String, nodesToRefresh: List[String])
 
-  case class NodeFailure(nodeAddress: String);
+  //case class NodeFailure(nodeAddress: String);
 
   case class Verify(nodeAddress: String)
 
@@ -424,7 +423,7 @@ object PartialView {
 
   case class Init(ownAddress: String, contactNode: String);
 
-  case class Join();
+  case class Join(ownAddress : String, contactNode : String);
 
   case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String, contactNode: String);
 
