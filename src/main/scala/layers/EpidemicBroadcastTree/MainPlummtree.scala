@@ -32,17 +32,22 @@ class MainPlummtree extends Actor with Timers {
   override def receive: PartialFunction[Any, Unit] = {
 
     case init: MainPlummtree.Init =>
+      var done : Boolean = false
+      var attempt : Int = 0
+      ownAddress =  init.ownAddress//returns as node@host:port
 
-
-      try {
-        ownAddress =  init.ownAddress//returns as node@host:port
-        implicit val timeout :Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
-        val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
-        val future2 = partialViewRef ? getPeers(FANOUT)
-        eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
-      }catch{
-        case _ : TimeoutException => println("Foi tudo com o crlh ")
-      }
+      do {
+        try {
+          attempt+=1
+          implicit val timeout: Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
+          val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
+          val future2 = partialViewRef ? getPeers(FANOUT)
+          eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
+          done = true
+        } catch {
+          case _: TimeoutException => println("Foi tudo com o crlh ")
+        }
+      }while(!done && attempt < 3)
 
     case broadCast: Broadcast =>
       val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
