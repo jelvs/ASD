@@ -9,6 +9,7 @@ import akka.actor.{Actor, Props, Timers}
 import akka.util.Timeout
 import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
+import layers.PublishSubscribe.PublishSubscribe
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -52,10 +53,13 @@ class MainPlummtree extends Actor with Timers {
           //end test print
 
           done = true
+
         } catch {
           case _: TimeoutException => println("Foi tudo com o crlh ")
         }
       }while(!done && attempt < 3)
+      val pubSub = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+      pubSub ! PublishSubscribe.Init(ownAddress)
 
     case broadCast: Broadcast =>
       val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)

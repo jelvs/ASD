@@ -27,9 +27,9 @@ class PublishSubscribe  extends Actor
   val fanout: Integer = 5
 
   override def receive: Receive = {
-    case _: PublishSubscribe.Init =>
+    case init: PublishSubscribe.Init =>
 
-      this.ownAddress = self.path.address.hostPort //returns as node@host:port
+      this.ownAddress = init.ownAddress //returns as node@host:port
       implicit val timeout: Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
       val future = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME).resolveOne()
       val partialViewRef: ActorRef = Await.result(future, timeout.duration)
@@ -37,7 +37,6 @@ class PublishSubscribe  extends Actor
       myNeighbors = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
 
     case subscribe: PublishSubscribe.Subscribe =>
-
       if(!mySubscriptions.contains(subscribe.topic)){
         mySubscriptions = mySubscriptions :+ subscribe.topic
         for(nei <- myNeighbors){
@@ -96,7 +95,7 @@ class PublishSubscribe  extends Actor
 object PublishSubscribe {
   val props: Props = Props[PublishSubscribe]
 
-  case class Init()
+  case class Init(ownAddress: String)
 
   case class Subscribe(topic: String)
 
