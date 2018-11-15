@@ -1,9 +1,16 @@
 package app
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
+import layers.MembershipLayer.PartialView.HeartbeatProcedure
+
+
+import scala.concurrent.duration.FiniteDuration
+
 
 
 object Process extends App {
@@ -21,14 +28,20 @@ object Process extends App {
 
     var contactNode = ""
     if (args.length > 1) {
-        contactNode = args(1)
+        contactNode =  s"akka.tcp://${system.name}@${args(1)}"
+        println("Concato: " + contactNode)
     }
-
-    println(ownAddress)
-
+    println("Myself: " +ownAddress)
 
     partialView ! PartialView.Init(ownAddress, contactNode)
 
+    //Use system's dispatcher as ExecutionContext
+    import system.dispatcher
+
+    //This will schedule to send the Tick-message
+    //to the tickActor after 0ms repeating every 50ms
+    val heartbeatMessage = HeartbeatProcedure
+    val cancellable = system.scheduler.schedule(FiniteDuration(10, TimeUnit.SECONDS), FiniteDuration(35, TimeUnit.SECONDS) , partialView ,heartbeatMessage)
 
     //    println("Contact Node: " + contactNode)
 

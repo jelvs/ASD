@@ -1,6 +1,6 @@
 package layers.MembershipLayer
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.pattern.ask
 import akka.actor.{Actor, Props, Timers}
@@ -11,6 +11,7 @@ import layers.MembershipLayer.PartialView._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Random
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class PartialView extends Actor with Timers
@@ -23,8 +24,8 @@ class PartialView extends Actor with Timers
   var passiveView: List[String] = List.empty
   val activeViewThreshold : Int = 4
   val passiveViewThreshold : Int = 35
-  val ARWL : Int = 5; //Active Random Walk Length
-  val PRWL : Int  = 5; //Passive Random Walk Length
+  val ARWL : Int = 3; //Active Random Walk Length
+  val PRWL : Int  = 2; //Passive Random Walk Length
   var processesAlive : Map[String, Double] = Map[String, Double]()
   var uAlive : Map[String, Double] = Map[String, Double]()
 
@@ -37,18 +38,15 @@ class PartialView extends Actor with Timers
       ownAddress = message.ownAddress
       if (!message.contactNode.equals("")) {
         val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
-        //println("Process path: " + process.toString())
         process ! Join(message.ownAddress)
         addNodeActiveView(message.contactNode)
         addAlive(message.contactNode)
-
       }
 
-      implicit val timeout : Timeout = Timeout(FiniteDuration(10, TimeUnit.SECONDS))
-      val heartbeatMessage = HeartbeatProcedure
-      val passiveViewShuffle = PassiveViewProcedure
-      timers.startPeriodicTimer("DeadNodeFinderTimer", heartbeatMessage , timeout.duration)
-      timers.startPeriodicTimer("PassiveViewShuffleTimmer", passiveViewShuffle, timeout.duration)
+
+      context.system.scheduler.schedule(0 seconds, 5 seconds)(heartbeatProcedure())
+
+
 
     //TODO: Usar future -> o gajo me mandar a merda o que faço
     case join: Join =>
@@ -66,6 +64,7 @@ class PartialView extends Actor with Timers
 
     //TODO: Usar future -> se o gajo me madnar a merda o que faço
     case forwardJoin: ForwardJoin =>
+      printf("chegou arl: "+ forwardJoin.arwl + "\n")
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborRequest(1)
@@ -101,6 +100,7 @@ class PartialView extends Actor with Timers
     /* ----------------------------------------------------------------------------------------*/
 
     case _: HeartbeatProcedure =>
+      printf("Vou Inspecionar\n")
       for ((n, t) <- processesAlive) {
         // 5 seconds heartbeat
         if ((System.currentTimeMillis() - t) >= 5000) {
@@ -118,10 +118,11 @@ class PartialView extends Actor with Timers
       }
 
     case _: UThere =>
-      sender ! ImHere
-
+      printf("Chegou um uthere de " + sender.path.address.toString +"\n")
+      sender ! true
 
     case _: ImHere =>
+      printf("Ta vivo: " +sender.path.address.toString+ "\n" )
       uAlive -= sender.path.address.toString
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sender.path.address.toString -> timer)
@@ -140,6 +141,7 @@ class PartialView extends Actor with Timers
 
 
     case _: PassiveViewProcedure =>
+
       implicit val timeout : Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
       val neighbor : String = Random.shuffle(activeView).head
       val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
@@ -163,6 +165,7 @@ class PartialView extends Actor with Timers
   /** Support Methods  */
 
   def addNodeActiveView(node: String): Unit = {
+    println("Vou adicionar: " + node)
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
       if(activeView.size == activeViewThreshold){
         dropRandomNodeActiveView()
@@ -176,6 +179,7 @@ class PartialView extends Actor with Timers
 
   def dropRandomNodeActiveView(): Unit = {
     val remoteProcessAdress : String = Random.shuffle(activeView).head
+    println("vou remover da active: " + remoteProcessAdress)
     val remoteActor = context.actorSelection(remoteProcessAdress.concat(ACTOR_NAME))
     remoteActor ! Disconnect(ownAddress)
     activeView = activeView.filter(!_.equals(remoteProcessAdress))
@@ -193,8 +197,10 @@ class PartialView extends Actor with Timers
   }
 
   def dropRandomNodePassiveView(): Unit ={
+
     val remoteProcessAddress : String = Random.shuffle(passiveView).head
     passiveView = passiveView.filter(!_.equals(remoteProcessAddress))
+    printf(remoteProcessAddress + " removido da passive view")
   }
 
   def promoteProcessToActiveView(newNode: String): Boolean = {
@@ -222,6 +228,7 @@ class PartialView extends Actor with Timers
   }
 
   def permanentFailure(nodeAddress: String): Unit = {
+    printf("O Node: " +nodeAddress +" morreu! \n")
     activeView = activeView.filter(!_.equals(nodeAddress))
     passiveView = passiveView.filter(!_.equals(nodeAddress))
     uAlive -= nodeAddress
@@ -234,13 +241,26 @@ class PartialView extends Actor with Timers
   }
 
 
-  def rUAlive(nodeAddr : String): Unit ={
-
-    val currentTime = System.currentTimeMillis()
-    processesAlive -= nodeAddr
-    uAlive += nodeAddr -> currentTime
-    val process = context.actorSelection(s"$nodeAddr/user/PartialView")
-    process ! UThere()
+  def rUAlive(nodeAddr : String): Unit = {
+    try {
+      implicit val timeout: Timeout = Timeout(FiniteDuration(5, TimeUnit.SECONDS))
+      val currentTime = System.currentTimeMillis()
+      processesAlive -= nodeAddr
+      uAlive += nodeAddr -> currentTime
+      printf("A mandar para o gaji: "+ s"${nodeAddr}/user/PartialView" + "\n")
+      val process = context.actorSelection(s"$nodeAddr/user/PartialView")
+      val uthere = UThere()
+      val future = process ? uthere
+      val result = Await.result(future, timeout.duration).asInstanceOf[Boolean]
+      if(result){
+        printf("Ta vivo: " + nodeAddr +"\n")
+        uAlive -= nodeAddr
+        val timer: Double = System.currentTimeMillis()
+        processesAlive += (nodeAddr -> timer)
+      }
+    }catch{
+      case timeoutEx : TimeoutException => timeoutEx.printStackTrace()
+    }
   }
 
 
@@ -248,7 +268,26 @@ class PartialView extends Actor with Timers
     val timer: Double = System.currentTimeMillis()
     processesAlive += (node -> timer)
   }
-  
+
+  def heartbeatProcedure(): Unit = {
+    printf("Vou Inspecionar\n")
+    for ((n, t) <- processesAlive) {
+      // 5 seconds heartbeat
+      if ((System.currentTimeMillis() - t) >= 5000) {
+        println("Vou ver se este gajo morreu: " + n)
+        rUAlive(n)
+      }
+    }
+
+    for ((n, t) <- uAlive) {
+      // more than 10 seconds
+      if ((System.currentTimeMillis() - t) >= 15000 && !n.equals(ownAddress)) {
+        println("Enter permanent Failure process " + n)
+        permanentFailure(n)
+      }
+    }
+  }
+
 
 }
 
