@@ -9,9 +9,10 @@ import akka.actor.{Actor, Props, Timers}
 import akka.util.Timeout
 import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
+import layers.PublishSubscribe.PublishSubscribe
 
 import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 class MainPlummtree extends Actor with Timers {
 
@@ -30,17 +31,35 @@ class MainPlummtree extends Actor with Timers {
 
 
   override def receive: PartialFunction[Any, Unit] = {
+    case init: MainPlummtree.Init =>
+      printf("A iniciar\n")
+      var done : Boolean = false
+      var attempt : Int = 0
+      ownAddress =  init.ownAddress//returns as node@host:port
 
-    case _: MainPlummtree.Init =>
-      try {
-        ownAddress = self.path.address.hostPort //returns as node@host:port
-        implicit val timeout :Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
-        val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
-        val future2 = partialViewRef ? getPeers(FANOUT)
-        eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
-      }catch{
-        case timeout : TimeoutException => println("Foi tudo com o crlh ")
-      }
+      do {
+        try {
+          attempt+=1
+          implicit val timeout: Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
+          val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
+          val future2 = partialViewRef ? getPeers(FANOUT)
+          eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
+
+          //test print
+          if(eagerPushPeers.nonEmpty){
+            println("Eager push peers: ")
+            eagerPushPeers.foreach(aView => println("\t" + aView.toString))
+          }
+          //end test print
+
+          done = true
+
+        } catch {
+          case _: TimeoutException => println("Foi tudo com o crlh ")
+        }
+      }while(!done && attempt < 3)
+      val pubSub = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+      pubSub ! PublishSubscribe.Init(ownAddress)
 
     case broadCast: Broadcast =>
       val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
@@ -49,7 +68,7 @@ class MainPlummtree extends Actor with Timers {
       val messageId = scala.util.hashing.MurmurHash3.bytesHash(totalMessageBytes)
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
-      publishSubscribeActor ! BroadCastDeliver( broadCast.message)
+      publishSubscribeActor ! BroadCastDeliver(broadCast.message)
       receivedMessages = receivedMessages :+ messageId
 
     case gossipReceive: GossipMessage =>
@@ -81,15 +100,14 @@ class MainPlummtree extends Actor with Timers {
           actorRef ! Prune(ownAddress)
       }
 
+    //TODO: Este timer da piça não deve trabalhar
     case iHave: IHave =>
       if(!receivedMessages.contains(iHave.messageId)){
         if(!timers.isTimerActive(iHave.messageId)) {
-          implicit val timeout :Timeout = Timeout(FiniteDuration(5, TimeUnit.SECONDS))
           val timeOutMessage = TimeOut(iHave.messageId)
-          timers.startSingleTimer(iHave.messageId, timeOutMessage, timeout.duration)
+          timers.startSingleTimer(iHave.messageId, timeOutMessage, 5.seconds)
         }
         missing = missing :+ iHave
-
       }
 
     case timeoutMessage: TimeOut =>
@@ -114,10 +132,13 @@ class MainPlummtree extends Actor with Timers {
       eagerPushPeers = eagerPushPeers.filter(_ != neighborDown.nodeAddress)
       lazyPushPeers = lazyPushPeers.filter( _ != neighborDown.nodeAddress )
       missing = missing.filter( _.sender != neighborDown.nodeAddress )
+      println("Eager push peers after nei down: ")
+      eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case neighborUp: NeighborUp =>
       eagerPushPeers = eagerPushPeers :+ neighborUp.nodeAddress
-
+      println("Eager push peers: ")
+      eagerPushPeers.foreach(aView => println("\t" + aView.toString))
   }
 
   def getMessage(messageId: Int): GossipMessage ={
@@ -149,7 +170,7 @@ class MainPlummtree extends Actor with Timers {
 
   def eagerPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- eagerPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! GossipMessage(message, messageId, round, ownAddress)
     }
   }
@@ -160,7 +181,7 @@ class MainPlummtree extends Actor with Timers {
     val heavyMessage : GossipMessage = GossipMessage(message,messageId,round,sender)
     lazyQueue = lazyQueue :+ heavyMessage
     for (peerAddress <- lazyPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! ihave
     }
   }
@@ -221,7 +242,7 @@ object MainPlummtree {
 
   val props: Props = Props[MainPlummtree]
 
-  case class Init()
+  case class Init(ownAddress: String)
 
   case class PeerSample(peerSample: List[String])
 

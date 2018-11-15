@@ -1,37 +1,44 @@
 package app
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
+import layers.MembershipLayer.PartialView.HeartbeatProcedure
+import layers.PublishSubscribe.PublishSubscribe
+
+import scala.concurrent.duration.FiniteDuration
+
 
 
 object Process extends App {
 
     var port = 2552
     if (args.length != 0) {
-        port = args(0).toInt
+        val args_ = args(0).split(":")
+        printf(args_(0) + "\n")
+        printf(args_(1) + "\n")
+        port = args_(1).toInt
+        printf(port.toString + "\n")
     }
 
     val config = configure()
     val system = ActorSystem("SystemName", config)
-    val ownAddress = getOwnAddress(port)
+    val ownAddress = s"akka.tcp://${system.name}@${args(0)}"
     val partialView = system.actorOf(Props[PartialView], "PartialView")
-    val plummtree = system.actorOf(Props[MainPlummtree], "Plummtree")
+    val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
+    val pubsub = system.actorOf(Props[PublishSubscribe], "PublishSubscribe")
 
     var contactNode = ""
     if (args.length > 1) {
-        contactNode = args(1)
+        contactNode =  s"akka.tcp://${system.name}@${args(1)}"
+        println("Concato: " + contactNode)
     }
-
-    println(ownAddress)
-
+    println("Myself: " +ownAddress)
 
     partialView ! PartialView.Init(ownAddress, contactNode)
-
-
-    //    println("Contact Node: " + contactNode)
-
 
     def configure(): Config = {
 
