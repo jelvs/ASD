@@ -47,7 +47,7 @@ class Tester  extends Actor{
 }
 
 object Tester{
-  var props: Props = props[Tester]
+  //var props: Props = props[Tester]
 
   case class Init()
 
