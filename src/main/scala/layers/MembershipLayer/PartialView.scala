@@ -3,7 +3,7 @@ package layers.MembershipLayer
 import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.pattern.ask
-import akka.actor.{Actor, Props, Timers}
+import akka.actor.{Actor, ActorSelection, Props, Timers}
 import akka.util.Timeout
 import layers.EpidemicBroadcastTree.MainPlummtree.{NeighborDown, NeighborUp}
 import layers.MembershipLayer.PartialView._
@@ -36,12 +36,25 @@ class PartialView extends Actor with Timers
     case message: PartialView.Init =>
 
       ownAddress = message.ownAddress
-      if (!message.contactNode.equals("")) {
-        val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
-        process ! Join(message.ownAddress)
-        addNodeActiveView(message.contactNode)
-        addAlive(message.contactNode)
-      }
+      var done : Boolean = false
+      var attempt : Int = 0
+
+
+        if (!message.contactNode.equals("")) {
+          do{
+            implicit val timeout :Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
+            val future = context.actorSelection(message.contactNode.concat(ACTOR_NAME)).resolveOne()
+            val result = Await.result(future, timeout.duration).asInstanceOf[ActorSelection]
+            result ! Join(message.ownAddress)
+            addNodeActiveView(message.contactNode)
+            addAlive(message.contactNode)
+            done = true
+            attempt+=1
+          }while(!done && attempt < 3 )
+        }
+
+      if(!done) {printf("Vou-me matar mas não sei como lelel \n") }
+
       context.system.scheduler.schedule(0 seconds, 5 seconds)(heartbeatProcedure())
       context.system.scheduler.schedule(0 seconds, 40 seconds)(passiveViewShufflrProcedure())
 

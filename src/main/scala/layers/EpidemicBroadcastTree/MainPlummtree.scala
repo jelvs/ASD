@@ -31,15 +31,16 @@ class MainPlummtree extends Actor with Timers {
 
   override def receive: PartialFunction[Any, Unit] = {
 
-    case _: MainPlummtree.Init =>
+    case init: MainPlummtree.Init =>
+
       try {
-        ownAddress = self.path.address.hostPort //returns as node@host:port
+        ownAddress =  init.ownAddress//returns as node@host:port
         implicit val timeout :Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))
         val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
         val future2 = partialViewRef ? getPeers(FANOUT)
         eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
       }catch{
-        case timeout : TimeoutException => println("Foi tudo com o crlh ")
+        case _ : TimeoutException => println("Foi tudo com o crlh ")
       }
 
     case broadCast: Broadcast =>
@@ -221,7 +222,7 @@ object MainPlummtree {
 
   val props: Props = Props[MainPlummtree]
 
-  case class Init()
+  case class Init(ownAddress: String)
 
   case class PeerSample(peerSample: List[String])
 
