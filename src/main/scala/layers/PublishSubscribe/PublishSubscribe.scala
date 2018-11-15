@@ -38,6 +38,7 @@ class PublishSubscribe  extends Actor
 
     case subscribe: PublishSubscribe.Subscribe =>
       if(!mySubscriptions.contains(subscribe.topic)){
+        printf("Vou subscrever ao topico: " + subscribe.topic + "\n")
         mySubscriptions = mySubscriptions :+ subscribe.topic
         for(nei <- myNeighbors){
           val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(nei.concat(ACTOR_NAME)))
@@ -49,6 +50,7 @@ class PublishSubscribe  extends Actor
     case unSubscribe: UnSubscribe =>
 
       if(mySubscriptions.contains(unSubscribe.topic)){
+        printf("Vou remover a minha subscrição em: " + unSubscribe.topic)
         mySubscriptions = mySubscriptions.filter(_ != unSubscribe.topic)
         for(nei <- myNeighbors){
           val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(nei.concat(ACTOR_NAME)))
@@ -63,9 +65,11 @@ class PublishSubscribe  extends Actor
       broadcastTree ! Broadcast(publish)
 
     case broadCastDeliver: BroadCastDeliver =>
-
       val publication = broadCastDeliver.asInstanceOf[Publish]
       val interested_Neighbors = neighborSubscriptions(publication.topic)
+
+      printf("Recebi msg de topico " + publication.topic + " para ir " + publication.message + "\n")
+
       if(mySubscriptions.contains(publication.topic)) {
         //pubsubDeliver(publication.topic)
       }
@@ -74,8 +78,10 @@ class PublishSubscribe  extends Actor
         neiActor ! BroadCastDeliver(broadCastDeliver)
       }
 
-    case neighborSubscription: NeighborSubscription =>
 
+
+    case neighborSubscription: NeighborSubscription =>
+      printf("O meu vizinho " + neighborSubscription.neighborAddr +" esta a subscrever " + neighborSubscription.topic+ "\n")
       var neiInterested : List[String] = neighborSubscriptions(neighborSubscription.topic)
       if(!neiInterested.contains(neighborSubscription.neighborAddr)){
         neiInterested = neiInterested :+ neighborSubscription.neighborAddr
@@ -83,7 +89,7 @@ class PublishSubscribe  extends Actor
       }
 
     case neighborUnSubscription: NeighborUnSubscription =>
-
+      printf("O meu vizinho " + neighborUnSubscription.neighborAddr +" esta a dessubscrever " + neighborUnSubscription.topic+ "\n")
       var neiInterested : List[String] = neighborSubscriptions(neighborUnSubscription.topic)
       if(neiInterested.contains(neighborUnSubscription.neighborAddr)) {
         neiInterested = neiInterested.filter(_ != neighborUnSubscription.neighborAddr)
