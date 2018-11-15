@@ -42,12 +42,10 @@ class PartialView extends Actor with Timers
           do{
             try {
               attempt += 1
-              implicit val timeout: Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
-              val future = context.actorSelection(message.contactNode.concat(ACTOR_NAME)).resolveOne()
-              val result = Await.result(future, timeout.duration)
+              val conctactActor = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
               addNodeActiveView(message.contactNode)
               addAlive(message.contactNode)
-              result ! Join(message.ownAddress)
+              conctactActor ! Join(message.ownAddress)
               done = true
             }catch {
               case _ : TimeoutException => printf("Node did not reponse... try " + attempt + " out of 3")
@@ -64,7 +62,6 @@ class PartialView extends Actor with Timers
       context.system.scheduler.schedule(60 seconds, 5 seconds)(heartbeatProcedure())
       //context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
 
-    //TODO: Usar future -> o gajo me mandar a merda o que faço
     case join: Join =>
       printf("Recebi Join de: " + join.newNodeAddress +"\n")
       addNodeActiveView(join.newNodeAddress)
@@ -77,11 +74,9 @@ class PartialView extends Actor with Timers
         remoteProcess ! ForwardJoin(join.newNodeAddress, ARWL, ownAddress)
       })
 
-    //TODO: Usar future -> se o gajo me madnar a merda o que faço
     case forwardJoin: ForwardJoin =>
-      printf("chegou arl: "+ forwardJoin.arwl + "\n")
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
-        printf("Vou adicionar no forward o no: " + forwardJoin.newNode + "\n")
+
         val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborRequest(1, ownAddress)
         if(addNodeActiveView(forwardJoin.newNode)) {
@@ -136,55 +131,51 @@ class PartialView extends Actor with Timers
       }
 
     case _: UThere =>
-      //printf("Chegou um uthere de " + sender.path.address.toString +"\n")
-      sender ! true
+      sender ! ImHere(ownAddress)
 
-    case _: ImHere =>
+    case imHere: ImHere =>
       //printf("Ta vivo: " +sender.path.address.toString+ "\n" )
-      uAlive -= sender.path.address.toString
-      val timer: Double = System.currentTimeMillis()
-      processesAlive += (sender.path.address.toString -> timer)
+      if(activeView.contains(imHere.nodeAddress)) {
+        uAlive -= sender.path.address.toString
+        val timer: Double = System.currentTimeMillis()
+        processesAlive += (sender.path.address.toString -> timer)
 
+      }else{
+        sender ! Disconnect(ownAddress)
+      }
 
     case neighborRequest: NeighborRequest =>
       if(neighborRequest.priority == 1 || activeView.size < activeViewThreshold)  {
        if(addNodeActiveView(neighborRequest.nodeAddress)) {
-         printf("Vou aceitar n request de :" + neighborRequest.nodeAddress + "\n")
          addAlive(neighborRequest.nodeAddress)
-         val PlumTree = context.actorSelection("/user/MainPlummtree")
-         PlumTree ! NeighborUp(neighborRequest.nodeAddress)
-         sender ! true
        }
       }
-      sender ! false
 
     /*--------------------------------------------------------------------------------------------------*/
 
-
     case _: PassiveViewProcedure =>
 
-      implicit val timeout : Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
-      val neighbor : String = Random.shuffle(activeView).head
-      val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
-      val toSend : List[String] = Random.shuffle(passiveView.filter(node => !node.equals(neighbor)).take(3))
-      passiveView = passiveView.diff(toSend)
-      val future = remoteProcess ? RefreshPassiveView(ownAddress, toSend)
-      val newPassiveNodes = Await.result(future, timeout.duration).asInstanceOf[List[String]]
-      passiveView ++= newPassiveNodes
-
+      if(passiveView.nonEmpty) {
+        val neighbor: String = Random.shuffle(activeView).head
+        val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
+        val toSend: List[String] = Random.shuffle(passiveView.filter(node => !node.equals(neighbor)).take(3))
+        passiveView = passiveView.diff(toSend)
+        remoteProcess ! RefreshPassiveView(ownAddress, toSend)
+      }
 
     case receiveRefreshSendPassive: RefreshPassiveView =>
-
       val toSend : List[String] = Random.shuffle(passiveView.filter(node => !node.equals(receiveRefreshSendPassive.senderAddress)).take(3))
       passiveView = passiveView.diff(toSend)
       passiveView ++= receiveRefreshSendPassive.nodesToRefresh
-      sender ! toSend
+      sender ! RefreshPassiveViewReply(toSend)
+
+    case reply: RefreshPassiveViewReply =>
+      passiveView ++ reply.toSend
+
   }
 
 
-
-  /** Support Methods  */
-
+  /** Support Methods  **/
   def addNodeActiveView(node: String): Boolean = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
       if(activeView.size == activeViewThreshold){
@@ -227,23 +218,18 @@ class PartialView extends Actor with Timers
   }
 
   def promoteProcessToActiveView(newNode: String): Boolean = {
-    implicit val timeout : Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
     val process = context.actorSelection(s"$newNode/user/PartialView")
     val priority = if(activeView.isEmpty) 1 else 0
-    val future = process ? NeighborRequest(priority, ownAddress)
-    val result = Await.result(future, timeout.duration).asInstanceOf[Boolean]
-    if(result){
-      addNodeActiveView(newNode)
-      addAlive(newNode)
-      return true
-    }
-    false
+    process ! NeighborRequest(priority, ownAddress)
+    addNodeActiveView(newNode)
+    addAlive(newNode)
+    true
   }
 
 
   def promoteRandomProcessToActiveView(): Unit = {
 
-    if(!passiveView.isEmpty) {
+    if(passiveView.nonEmpty) {
       var toPromote: String = ""
       do {
         toPromote = Random.shuffle(passiveView).head
@@ -268,21 +254,13 @@ class PartialView extends Actor with Timers
 
   def rUAlive(nodeAddr : String): Unit = {
     try {
-      implicit val timeout: Timeout = Timeout(FiniteDuration(5, TimeUnit.SECONDS))
+
       val currentTime = System.currentTimeMillis()
       processesAlive -= nodeAddr
       uAlive += nodeAddr -> currentTime
-      //printf("A mandar para o gaji: "+ s"$nodeAddr/user/PartialView" + "\n")
       val process = context.actorSelection(s"$nodeAddr/user/PartialView")
-      val uthere = UThere()
-      val future = process ? uthere
-      val result = Await.result(future, timeout.duration).asInstanceOf[Boolean]
-      if(result){
-       // printf("Ta vivo: " + nodeAddr +"\n")
-        uAlive -= nodeAddr
-        val timer: Double = System.currentTimeMillis()
-        processesAlive += (nodeAddr -> timer)
-      }
+      process ! UThere
+
     }catch{
       case timeoutEx : TimeoutException => printf("Nao respondeu!")
     }
@@ -325,6 +303,8 @@ class PartialView extends Actor with Timers
 
   }
 
+
+
 }
 
 object PartialView{
@@ -334,7 +314,9 @@ object PartialView{
 
   case class RefreshPassiveView(senderAddress : String, nodesToRefresh: List[String])
 
-  case class ImHere()
+  case class RefreshPassiveViewReply(toSend: List[String])
+
+  case class ImHere(nodeAddress: String)
 
   case class UThere()
 

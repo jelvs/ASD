@@ -11,7 +11,7 @@ import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
 
 import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 class MainPlummtree extends Actor with Timers {
 
@@ -45,7 +45,7 @@ class MainPlummtree extends Actor with Timers {
           eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
 
           //test print
-          if(!eagerPushPeers.isEmpty) {
+          if(eagerPushPeers.nonEmpty){
             println("Eager push peers: ")
             eagerPushPeers.foreach(aView => println("\t" + aView.toString))
           }
@@ -100,9 +100,8 @@ class MainPlummtree extends Actor with Timers {
     case iHave: IHave =>
       if(!receivedMessages.contains(iHave.messageId)){
         if(!timers.isTimerActive(iHave.messageId)) {
-          implicit val timeout :Timeout = Timeout(FiniteDuration(5, TimeUnit.SECONDS))
           val timeOutMessage = TimeOut(iHave.messageId)
-          timers.startSingleTimer(iHave.messageId, timeOutMessage, timeout.duration)
+          timers.startSingleTimer(iHave.messageId, timeOutMessage, 5.seconds)
         }
         missing = missing :+ iHave
 
@@ -168,7 +167,7 @@ class MainPlummtree extends Actor with Timers {
 
   def eagerPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- eagerPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME)))
       actorRef ! GossipMessage(message, messageId, round, ownAddress)
     }
   }
@@ -179,7 +178,7 @@ class MainPlummtree extends Actor with Timers {
     val heavyMessage : GossipMessage = GossipMessage(message,messageId,round,sender)
     lazyQueue = lazyQueue :+ heavyMessage
     for (peerAddress <- lazyPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME)))
       actorRef ! ihave
     }
   }
