@@ -32,6 +32,7 @@ class MainPlummtree extends Actor with Timers {
   override def receive: PartialFunction[Any, Unit] = {
 
     case init: MainPlummtree.Init =>
+      printf("A iniciar\n")
       var done : Boolean = false
       var attempt : Int = 0
       ownAddress =  init.ownAddress//returns as node@host:port
@@ -43,6 +44,14 @@ class MainPlummtree extends Actor with Timers {
           val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
           val future2 = partialViewRef ? getPeers(FANOUT)
           eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
+
+          //test print
+          if(!eagerPushPeers.isEmpty) {
+            println("Eager push peers: ")
+            eagerPushPeers.foreach(aView => println("\t" + aView.toString))
+          }
+          //end test print
+
           done = true
         } catch {
           case _: TimeoutException => println("Foi tudo com o crlh ")
@@ -56,7 +65,7 @@ class MainPlummtree extends Actor with Timers {
       val messageId = scala.util.hashing.MurmurHash3.bytesHash(totalMessageBytes)
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
-      publishSubscribeActor ! BroadCastDeliver( broadCast.message)
+      publishSubscribeActor ! BroadCastDeliver(broadCast.message)
       receivedMessages = receivedMessages :+ messageId
 
     case gossipReceive: GossipMessage =>
@@ -88,6 +97,7 @@ class MainPlummtree extends Actor with Timers {
           actorRef ! Prune(ownAddress)
       }
 
+    //TODO: Este timer da piça não deve trabalhar
     case iHave: IHave =>
       if(!receivedMessages.contains(iHave.messageId)){
         if(!timers.isTimerActive(iHave.messageId)) {
@@ -121,10 +131,13 @@ class MainPlummtree extends Actor with Timers {
       eagerPushPeers = eagerPushPeers.filter(_ != neighborDown.nodeAddress)
       lazyPushPeers = lazyPushPeers.filter( _ != neighborDown.nodeAddress )
       missing = missing.filter( _.sender != neighborDown.nodeAddress )
+      println("Eager push peers after nei down: ")
+      eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case neighborUp: NeighborUp =>
       eagerPushPeers = eagerPushPeers :+ neighborUp.nodeAddress
-
+      println("Eager push peers: ")
+      eagerPushPeers.foreach(aView => println("\t" + aView.toString))
   }
 
   def getMessage(messageId: Int): GossipMessage ={

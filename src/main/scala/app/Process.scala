@@ -24,7 +24,7 @@ object Process extends App {
     val system = ActorSystem("SystemName", config)
     val ownAddress = getOwnAddress(port)
     val partialView = system.actorOf(Props[PartialView], "PartialView")
-    val plummtree = system.actorOf(Props[MainPlummtree], "Plummtree")
+    val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
 
     var contactNode = ""
     if (args.length > 1) {
@@ -34,6 +34,7 @@ object Process extends App {
     println("Myself: " +ownAddress)
 
     partialView ! PartialView.Init(ownAddress, contactNode)
+
 
     //Use system's dispatcher as ExecutionContext
     import system.dispatcher

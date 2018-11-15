@@ -3,8 +3,9 @@ package layers.MembershipLayer
 import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.pattern.ask
-import akka.actor.{Actor, ActorSelection, Props, Timers}
+import akka.actor.{Actor, Props, Timers}
 import akka.util.Timeout
+import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.EpidemicBroadcastTree.MainPlummtree.{NeighborDown, NeighborUp}
 import layers.MembershipLayer.PartialView._
 
@@ -19,7 +20,7 @@ class PartialView extends Actor with Timers
 
   val SYSTEM_NAME :String = "node"
   val ACTOR_NAME :String = "/user/PartialView"
-  var ownAddress : String = "" //actor re f
+  var ownAddress : String = "" //actor ref
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
   val activeViewThreshold : Int = 4
@@ -46,25 +47,23 @@ class PartialView extends Actor with Timers
               attempt += 1
               implicit val timeout: Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
               val future = context.actorSelection(message.contactNode.concat(ACTOR_NAME)).resolveOne()
-              val result = Await.result(future, timeout.duration).asInstanceOf[ActorSelection]
-              result ! Join(message.ownAddress)
+              val result = Await.result(future, timeout.duration)
               addNodeActiveView(message.contactNode)
               addAlive(message.contactNode)
+              result ! Join(message.ownAddress)
               done = true
             }catch {
               case _ : TimeoutException => printf("Node did not reponse... try " + attempt + " out of 3")
             }
 
           }while(!done && attempt <= 3 )
+          if(!done) {printf("Vou-me matar mas não sei como lelel \n") }
         }
 
-      if(!done) {printf("Vou-me matar mas não sei como lelel \n") }
-
-      context.system.scheduler.schedule(0 seconds, 5 seconds)(heartbeatProcedure())
-      context.system.scheduler.schedule(0 seconds, 40 seconds)(passiveViewShufflrProcedure())
-
-
-
+      context.system.scheduler.schedule(60 seconds, 5 seconds)(heartbeatProcedure())
+      //context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
+      val plumm = context.actorSelection("/user/MainPlummtree")
+      plumm ! MainPlummtree.Init(ownAddress)
 
     //TODO: Usar future -> o gajo me mandar a merda o que faço
     case join: Join =>
@@ -72,7 +71,7 @@ class PartialView extends Actor with Timers
       addNodeActiveView(join.newNodeAddress)
       addAlive(join.newNodeAddress)
 
-      val plummTreeActor = context.actorSelection("/user/Plummtree")
+      val plummTreeActor = context.actorSelection("/user/MainPlummtree")
       plummTreeActor ! NeighborUp(join.newNodeAddress)
 
       activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
@@ -82,14 +81,14 @@ class PartialView extends Actor with Timers
 
     //TODO: Usar future -> se o gajo me madnar a merda o que faço
     case forwardJoin: ForwardJoin =>
-      printf("chegou arl: "+ forwardJoin.arwl + "\n")
+      //printf("chegou arl: "+ forwardJoin.arwl + "\n")
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
         val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborRequest(1)
         addNodeActiveView(forwardJoin.newNode)
         addAlive(forwardJoin.newNode)
 
-        val plummTreeActor = context.actorSelection("/user/Plummtree")
+        val plummTreeActor = context.actorSelection("/user/MainPlummtree")
         plummTreeActor ! NeighborUp(forwardJoin.newNode)
 
       }else{
@@ -103,7 +102,7 @@ class PartialView extends Actor with Timers
 
 
     case disconnect: Disconnect =>
-      if (activeView.contains(disconnect.disconnectNode)) {
+      if(activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
         addNodePassiveView(disconnect.disconnectNode)
         processesAlive -= disconnect.disconnectNode
@@ -112,17 +111,17 @@ class PartialView extends Actor with Timers
 
     case getPeers: getPeers =>
       val split_Value : Int = math.min(getPeers.fanout, activeView.size)
-      val peers = activeView.splitAt(split_Value)
+      val peers : List[String] = activeView.splitAt(split_Value)._1
       sender ! peers
 
     /* ----------------------------------------------------------------------------------------*/
 
     case _: HeartbeatProcedure =>
-      printf("Vou Inspecionar\n")
+      //printf("Vou Inspecionar\n")
       for ((n, t) <- processesAlive) {
         // 5 seconds heartbeat
         if ((System.currentTimeMillis() - t) >= 5000) {
-          println("Vou ver se este gajo morreu: " + n)
+        //  println("Vou ver se este gajo morreu: " + n)
           rUAlive(n)
         }
       }
@@ -130,17 +129,17 @@ class PartialView extends Actor with Timers
       for ((n, t) <- uAlive) {
         // more than 10 seconds
         if ((System.currentTimeMillis() - t) >= 7000 && !n.equals(ownAddress)) {
-          println("Enter permanent Failure process " + n)
+          //println("Enter permanent Failure process " + n)
           permanentFailure(n)
         }
       }
 
     case _: UThere =>
-      printf("Chegou um uthere de " + sender.path.address.toString +"\n")
+      //printf("Chegou um uthere de " + sender.path.address.toString +"\n")
       sender ! true
 
     case _: ImHere =>
-      printf("Ta vivo: " +sender.path.address.toString+ "\n" )
+      //printf("Ta vivo: " +sender.path.address.toString+ "\n" )
       uAlive -= sender.path.address.toString
       val timer: Double = System.currentTimeMillis()
       processesAlive += (sender.path.address.toString -> timer)
@@ -183,7 +182,7 @@ class PartialView extends Actor with Timers
   /** Support Methods  */
 
   def addNodeActiveView(node: String): Unit = {
-    println("Vou adicionar: " + node)
+    //println("Vou adicionar: " + node)
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
       if(activeView.size == activeViewThreshold){
         dropRandomNodeActiveView()
@@ -197,7 +196,7 @@ class PartialView extends Actor with Timers
 
   def dropRandomNodeActiveView(): Unit = {
     val remoteProcessAdress : String = Random.shuffle(activeView).head
-    println("vou remover da active: " + remoteProcessAdress)
+    //println("vou remover da active: " + remoteProcessAdress)
     val remoteActor = context.actorSelection(remoteProcessAdress.concat(ACTOR_NAME))
     remoteActor ! Disconnect(ownAddress)
     activeView = activeView.filter(!_.equals(remoteProcessAdress))
@@ -210,7 +209,9 @@ class PartialView extends Actor with Timers
         dropRandomNodePassiveView()
       }
       passiveView = passiveView :+ nodeAddress
-      println("node added to passiveView : " + nodeAddress)
+      //println("node added to passiveView : " + nodeAddress)
+      val plummtree = context.actorSelection("/user/MainPlummtree")
+      plummtree ! NeighborDown(nodeAddress)
     }
   }
 
@@ -218,7 +219,7 @@ class PartialView extends Actor with Timers
 
     val remoteProcessAddress : String = Random.shuffle(passiveView).head
     passiveView = passiveView.filter(!_.equals(remoteProcessAddress))
-    printf(remoteProcessAddress + " removido da passive view")
+   // printf(remoteProcessAddress + " removido da passive view")
   }
 
   def promoteProcessToActiveView(newNode: String): Boolean = {
@@ -237,12 +238,14 @@ class PartialView extends Actor with Timers
 
 
   def promoteRandomProcessToActiveView(): Unit = {
-    var toPromote :String = ""
-    do{
-      toPromote = Random.shuffle(passiveView).head
-      passiveView = passiveView.filter(!_.equals(toPromote))
-    }while( ! promoteProcessToActiveView(toPromote) )
 
+    if(!passiveView.isEmpty) {
+      var toPromote: String = ""
+      do {
+        toPromote = Random.shuffle(passiveView).head
+        passiveView = passiveView.filter(!_.equals(toPromote))
+      } while (!promoteProcessToActiveView(toPromote))
+    }
   }
 
   def permanentFailure(nodeAddress: String): Unit = {
@@ -250,10 +253,10 @@ class PartialView extends Actor with Timers
     activeView = activeView.filter(!_.equals(nodeAddress))
     passiveView = passiveView.filter(!_.equals(nodeAddress))
     uAlive -= nodeAddress
-    println("node : " + nodeAddress)
-    println("new active View : ")
+    //println("node : " + nodeAddress)
+    //println("new active View : ")
     activeView.foreach(aView => println("\t" + aView.toString))
-    val plummTree = context.actorSelection("/user/Plummtree")
+    val plummTree = context.actorSelection("/user/MainPlummtree")
     plummTree ! NeighborDown(nodeAddress)
     promoteRandomProcessToActiveView()
   }
@@ -265,7 +268,7 @@ class PartialView extends Actor with Timers
       val currentTime = System.currentTimeMillis()
       processesAlive -= nodeAddr
       uAlive += nodeAddr -> currentTime
-      printf("A mandar para o gaji: "+ s"$nodeAddr/user/PartialView" + "\n")
+      //printf("A mandar para o gaji: "+ s"$nodeAddr/user/PartialView" + "\n")
       val process = context.actorSelection(s"$nodeAddr/user/PartialView")
       val uthere = UThere()
       val future = process ? uthere
@@ -277,7 +280,7 @@ class PartialView extends Actor with Timers
         processesAlive += (nodeAddr -> timer)
       }
     }catch{
-      case timeoutEx : TimeoutException => timeoutEx.printStackTrace()
+      case timeoutEx : TimeoutException => printf("Nao respondeu!")
     }
   }
 
@@ -288,11 +291,11 @@ class PartialView extends Actor with Timers
   }
 
   def heartbeatProcedure(): Unit = {
-    printf("Vou Inspecionar\n")
+    //printf("Vou Inspecionar\n")
     for ((n, t) <- processesAlive) {
       // 5 seconds heartbeat
       if ((System.currentTimeMillis() - t) >= 5000) {
-        println("Vou ver se este gajo morreu: " + n)
+      //  println("Vou ver se este gajo morreu: " + n)
         rUAlive(n)
       }
     }
@@ -300,7 +303,7 @@ class PartialView extends Actor with Timers
     for ((n, t) <- uAlive) {
       // more than 10 seconds
       if ((System.currentTimeMillis() - t) >= 15000 && !n.equals(ownAddress)) {
-        println("Enter permanent Failure process " + n)
+       // println("Enter permanent Failure process " + n)
         permanentFailure(n)
       }
     }
