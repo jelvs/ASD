@@ -104,7 +104,6 @@ class MainPlummtree extends Actor with Timers {
           timers.startSingleTimer(iHave.messageId, timeOutMessage, 5.seconds)
         }
         missing = missing :+ iHave
-
       }
 
     case timeoutMessage: TimeOut =>
@@ -167,7 +166,7 @@ class MainPlummtree extends Actor with Timers {
 
   def eagerPush(message: Any, messageId: Int, round: Int, sender: String): Unit = {
     for (peerAddress <- eagerPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! GossipMessage(message, messageId, round, ownAddress)
     }
   }
@@ -178,7 +177,7 @@ class MainPlummtree extends Actor with Timers {
     val heavyMessage : GossipMessage = GossipMessage(message,messageId,round,sender)
     lazyQueue = lazyQueue :+ heavyMessage
     for (peerAddress <- lazyPushPeers if !peerAddress.equals(sender)) {
-      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME)))
+      val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! ihave
     }
   }
