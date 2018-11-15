@@ -42,9 +42,9 @@ class PartialView extends Actor with Timers
         addNodeActiveView(message.contactNode)
         addAlive(message.contactNode)
       }
-
-
       context.system.scheduler.schedule(0 seconds, 5 seconds)(heartbeatProcedure())
+      context.system.scheduler.schedule(0 seconds, 40 seconds)(passiveViewShufflrProcedure())
+
 
 
 
@@ -247,7 +247,7 @@ class PartialView extends Actor with Timers
       val currentTime = System.currentTimeMillis()
       processesAlive -= nodeAddr
       uAlive += nodeAddr -> currentTime
-      printf("A mandar para o gaji: "+ s"${nodeAddr}/user/PartialView" + "\n")
+      printf("A mandar para o gaji: "+ s"$nodeAddr/user/PartialView" + "\n")
       val process = context.actorSelection(s"$nodeAddr/user/PartialView")
       val uthere = UThere()
       val future = process ? uthere
@@ -288,6 +288,18 @@ class PartialView extends Actor with Timers
     }
   }
 
+
+  def passiveViewShufflrProcedure(): Unit = {
+    implicit val timeout: Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
+    val neighbor: String = Random.shuffle(activeView).head
+    val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
+    val toSend: List[String] = Random.shuffle(passiveView.filter(node => !node.equals(neighbor)).take(3))
+    passiveView = passiveView.diff(toSend)
+    val future = remoteProcess ? RefreshPassiveView(ownAddress, toSend)
+    val newPassiveNodes = Await.result(future, timeout.duration).asInstanceOf[List[String]]
+    passiveView ++= newPassiveNodes
+
+  }
 
 }
 
