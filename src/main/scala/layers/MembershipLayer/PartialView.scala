@@ -41,7 +41,7 @@ class PartialView extends Actor with Timers {
         process ! Join()
         addNodeActiveView(message.contactNode)
 
-        context.system.scheduler.schedule(15 seconds, 15 seconds)((sendRandomRefreshPassive()))
+        context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
       }
 
       context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
@@ -208,11 +208,9 @@ class PartialView extends Actor with Timers {
 
 
   def sendRandomRefreshPassive() {
-
-    val neighbor: String = Random.shuffle(activeView).head;
-
-    val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
     if(passiveView.size >= 3) {
+      val neighbor: String = Random.shuffle(activeView).head;
+      val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
       val list: List[String] =
         Random.shuffle(passiveView.filter(node => !node.equals(neighbor) && !node.equals(ownAddress)).take(3))
 
