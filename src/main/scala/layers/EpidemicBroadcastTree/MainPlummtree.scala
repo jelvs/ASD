@@ -33,6 +33,7 @@ class MainPlummtree extends Actor with Timers {
 
     case init: MainPlummtree.Init =>
 
+
       try {
         ownAddress =  init.ownAddress//returns as node@host:port
         implicit val timeout :Timeout = Timeout(FiniteDuration(1, TimeUnit.SECONDS))

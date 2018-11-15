@@ -42,15 +42,20 @@ class PartialView extends Actor with Timers
 
         if (!message.contactNode.equals("")) {
           do{
-            implicit val timeout :Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
-            val future = context.actorSelection(message.contactNode.concat(ACTOR_NAME)).resolveOne()
-            val result = Await.result(future, timeout.duration).asInstanceOf[ActorSelection]
-            result ! Join(message.ownAddress)
-            addNodeActiveView(message.contactNode)
-            addAlive(message.contactNode)
-            done = true
-            attempt+=1
-          }while(!done && attempt < 3 )
+            try {
+              attempt += 1
+              implicit val timeout: Timeout = Timeout(FiniteDuration(2, TimeUnit.SECONDS))
+              val future = context.actorSelection(message.contactNode.concat(ACTOR_NAME)).resolveOne()
+              val result = Await.result(future, timeout.duration).asInstanceOf[ActorSelection]
+              result ! Join(message.ownAddress)
+              addNodeActiveView(message.contactNode)
+              addAlive(message.contactNode)
+              done = true
+            }catch {
+              case _ : TimeoutException => printf("Node did not reponse... try " + attempt + " out of 3")
+            }
+
+          }while(!done && attempt <= 3 )
         }
 
       if(!done) {printf("Vou-me matar mas não sei como lelel \n") }
