@@ -36,31 +36,30 @@ class PublishSubscribe  extends Actor
       val future2 = partialViewRef ? getPeers(fanout)
       myNeighbors = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
 
+
     case subscribe: PublishSubscribe.Subscribe =>
       if(!mySubscriptions.contains(subscribe.topic)){
         printf("Vou subscrever ao topico: " + subscribe.topic + "\n")
         mySubscriptions = mySubscriptions :+ subscribe.topic
         for(nei <- myNeighbors){
-          val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(nei.concat(ACTOR_NAME)))
+          val actorRef = context.actorSelection(nei.concat(ACTOR_NAME))
           val nei_Subscription: NeighborSubscription = NeighborSubscription(subscribe.topic, ownAddress)
           actorRef ! nei_Subscription
         }
       }
 
     case unSubscribe: UnSubscribe =>
-
       if(mySubscriptions.contains(unSubscribe.topic)){
         printf("Vou remover a minha subscrição em: " + unSubscribe.topic)
         mySubscriptions = mySubscriptions.filter(_ != unSubscribe.topic)
         for(nei <- myNeighbors){
-          val actorRef = context.actorSelection(AKKA_IP_PREPEND.concat(nei.concat(ACTOR_NAME)))
+          val actorRef = context.actorSelection(nei.concat(ACTOR_NAME))
           val neiUnsubscribe: NeighborUnSubscription = NeighborUnSubscription(unSubscribe.topic, ownAddress)
           actorRef ! neiUnsubscribe
         }
       }
 
     case publish: Publish =>
-
       val broadcastTree = context.actorSelection(PLUM_TREE_ACTOR_NAME)
       broadcastTree ! Broadcast(publish)
 
@@ -74,7 +73,7 @@ class PublishSubscribe  extends Actor
         //pubsubDeliver(publication.topic)
       }
       for(neighbor <- interested_Neighbors){
-        val neiActor = context.actorSelection(AKKA_IP_PREPEND.concat(neighbor.concat(ACTOR_NAME)))
+        val neiActor = context.actorSelection(neighbor.concat(ACTOR_NAME))
         neiActor ! BroadCastDeliver(broadCastDeliver)
       }
 

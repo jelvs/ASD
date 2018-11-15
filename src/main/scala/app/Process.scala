@@ -7,7 +7,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
 import layers.MembershipLayer.PartialView.HeartbeatProcedure
-
+import layers.PublishSubscribe.PublishSubscribe
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -29,6 +29,7 @@ object Process extends App {
     val ownAddress = s"akka.tcp://${system.name}@${args(0)}"
     val partialView = system.actorOf(Props[PartialView], "PartialView")
     val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
+    val pubsub = system.actorOf(Props[PublishSubscribe], "PublishSubscribe")
 
     var contactNode = ""
     if (args.length > 1) {
@@ -38,7 +39,6 @@ object Process extends App {
     println("Myself: " +ownAddress)
 
     partialView ! PartialView.Init(ownAddress, contactNode)
-
 
     def configure(): Config = {
 
