@@ -1,13 +1,11 @@
 package app
 
-
 import akka.actor.{Actor, Props}
 import layers.PublishSubscribe.PublishSubscribe.{DeliverPublish, Publish, Subscribe, UnSubscribe}
 import app.Tester.{sendPub, sendSub, sendUnsub}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 import scala.concurrent.duration._
-
 
 class Tester  extends Actor{
 
@@ -47,8 +45,8 @@ class Tester  extends Actor{
         messages = messages :+ ("vai pro crlh " + i +" vezes")
       }
 
-      context.system.scheduler.schedule(180 seconds, 15 seconds)(subscribeShit())
-     context.system.scheduler.schedule(200 seconds, 15 seconds)(publishShit())
+    // context.system.scheduler.schedule(180 seconds, 15 seconds)(subscribeShit())
+    // context.system.scheduler.schedule(200 seconds, 15 seconds)(publishShit())
 
 
     case sendSub : sendSub =>
