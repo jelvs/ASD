@@ -13,6 +13,7 @@ class PartialView extends Actor with Timers {
   //val AKKA_IP_PREPEND  = "akka.tcp://"
   val SYSTEM_NAME = "node"
   val ACTOR_NAME = "/user/PartialView"
+  val ACTOR_NAMEE = "/user/Plummtree"
   var ownAddress: String = "" //actor re f
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
@@ -28,19 +29,20 @@ class PartialView extends Actor with Timers {
 
 
     case message: PartialView.Init => {
-
+      val process2 = context.actorSelection(ownAddress.concat(ACTOR_NAMEE))
+      process2 ! MainPlummtree.Init(message.contactNode)
       if (!message.contactNode.equals("")) {
 
         ownAddress = message.ownAddress
 
 
         val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
-
         //println("Process path: " + process.toString())
 
-        process ! NeighborUp(message.contactNode)
         process ! Join(ownAddress : String, message.contactNode : String)
+
         addNodeActiveView(message.contactNode)
+        process ! NeighborUp(message.contactNode)
 
         context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
       }
@@ -345,7 +347,7 @@ class PartialView extends Actor with Timers {
     for ((n, t) <- processesAlive) {
 
       // 7 seconds heartbeat
-      if ((System.currentTimeMillis() - t) >= 7000 ) {
+      if ((System.currentTimeMillis() - t) >= 5000 ) {
         println("Are u ALive? " + n)
         processesAlive -= n
 

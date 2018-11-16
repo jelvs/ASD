@@ -32,7 +32,7 @@ class MainPlummtree extends Actor with Timers {
 
   override def receive: PartialFunction[Any, Unit] = {
     case init: MainPlummtree.Init =>
-      printf("A iniciar\n")
+      println("A iniciar\n")
       var done : Boolean = false
       var attempt : Int = 0
       ownAddress =  init.ownAddress//returns as node@host:port
