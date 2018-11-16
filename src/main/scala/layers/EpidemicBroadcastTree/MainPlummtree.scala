@@ -44,14 +44,14 @@ class MainPlummtree extends Actor with Timers {
           val partialViewRef = context.actorSelection(PARTIAL_VIEW_ACTOR_NAME)
           val future2 = partialViewRef ? getPeers(FANOUT)
           eagerPushPeers = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
-
+          /*
           //test print
           if(eagerPushPeers.nonEmpty){
             println("Eager push peers: ")
             eagerPushPeers.foreach(aView => println("\t" + aView.toString))
           }
           //end test print
-
+          */
           done = true
 
         } catch {
