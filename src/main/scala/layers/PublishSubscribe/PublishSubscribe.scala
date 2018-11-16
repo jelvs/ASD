@@ -8,6 +8,7 @@ import akka.util.Timeout
 import layers.EpidemicBroadcastTree.MainPlummtree.{BroadCastDeliver, Broadcast}
 import layers.MembershipLayer.PartialView.getPeers
 import layers.PublishSubscribe.PublishSubscribe._
+import layers.Tester
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
@@ -35,7 +36,8 @@ class PublishSubscribe  extends Actor
       val partialViewRef: ActorRef = Await.result(future, timeout.duration)
       val future2 = partialViewRef ? getPeers(fanout)
       myNeighbors = Await.result(future2, timeout.duration).asInstanceOf[List[String]]
-
+      val testActor = context.actorSelection("/user/Tester")
+      testActor ! Tester.Init()
 
     case subscribe: PublishSubscribe.Subscribe =>
       if(!mySubscriptions.contains(subscribe.topic)){

@@ -8,6 +8,7 @@ import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
 import layers.MembershipLayer.PartialView.HeartbeatProcedure
 import layers.PublishSubscribe.PublishSubscribe
+import layers.Tester
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -28,8 +29,9 @@ object Process extends App {
     val system = ActorSystem("SystemName", config)
     val ownAddress = s"akka.tcp://${system.name}@${args(0)}"
     val partialView = system.actorOf(Props[PartialView], "PartialView")
-    val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
+        val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
     val pubsub = system.actorOf(Props[PublishSubscribe], "PublishSubscribe")
+    val tester = system.actorOf(Props[Tester], "Tester")
 
     var contactNode = ""
     if (args.length > 1) {

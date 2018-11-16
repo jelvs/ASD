@@ -48,11 +48,11 @@ class PartialView extends Actor with Timers
       val plumm = context.actorSelection("/user/MainPlummtree")
       plumm ! MainPlummtree.Init(ownAddress)
 
-      context.system.scheduler.schedule(60 seconds, 5 seconds)(heartbeatProcedure())
+      context.system.scheduler.schedule(60 seconds, 60 seconds)(heartbeatProcedure())
       context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
 
     case join: Join =>
-      printf("Recebi Join de: " + join.newNodeAddress +"\n")
+      //printf("Recebi Join de: " + join.newNodeAddress +"\n")
       addNodeActiveView(join.newNodeAddress)
       addAlive(join.newNodeAddress)
 
@@ -66,7 +66,7 @@ class PartialView extends Actor with Timers
 
     case forwardJoin: ForwardJoin =>
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
-        printf("A Adicionar por forward join\n")
+        //printf("A Adicionar por forward join\n")
         val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborRequest(1, ownAddress)
         if(addNodeActiveView(forwardJoin.newNode)) {
@@ -76,7 +76,7 @@ class PartialView extends Actor with Timers
         }
       }else{
         if(forwardJoin.arwl == PRWL){
-          printf("Vou adicionar: " + forwardJoin.newNode + " a passiva\n")
+          //printf("Vou adicionar: " + forwardJoin.newNode + " a passiva\n")
           addNodePassiveView(forwardJoin.newNode)
         }
         val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.newNode))).head
@@ -130,7 +130,7 @@ class PartialView extends Actor with Timers
       actor ! ImHere(ownAddress)
 
     case imHere: ImHere =>
-      printf("Ta vivo: " +sender.path.address.toString+ "\n" )
+      //printf("Ta vivo: " +sender.path.address.toString+ "\n" )
       if(activeView.contains(imHere.nodeAddress)) {
         uAlive -= imHere.nodeAddress
         val timer: Double = System.currentTimeMillis()
@@ -276,7 +276,7 @@ class PartialView extends Actor with Timers
 
     for ((n, t) <- uAlive) {
       // more than 10 seconds
-      if ((System.currentTimeMillis() - t) >= 15000 && !n.equals(ownAddress)) {
+      if ((System.currentTimeMillis() - t) >= 60000 && !n.equals(ownAddress)) {
        // println("Enter permanent Failure process " + n)
         permanentFailure(n)
       }

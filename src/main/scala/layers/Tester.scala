@@ -10,6 +10,7 @@ import scala.concurrent.duration._
 class Tester  extends Actor{
 
   val PUBLISH_SUBSCRIBE_ACTOR_NAME = "/user/PublishSubscribe"
+  val TESTER_NAME = "/user/Tester"
   var topics : List[String] = List.empty
   var messages: List[String] = List.empty
 
@@ -44,8 +45,8 @@ class Tester  extends Actor{
         messages = messages :+ ("vai pro crlh " + i +" vezes")
       }
 
-      context.system.scheduler.schedule(180 seconds, 5 seconds)(subscribeShit())
-      context.system.scheduler.schedule(200 seconds, 5 seconds)(publishShit())
+      context.system.scheduler.schedule(180 seconds, 15 seconds)(subscribeShit())
+     context.system.scheduler.schedule(200 seconds, 15 seconds)(publishShit())
 
 
     case sendSub : sendSub =>
@@ -66,7 +67,7 @@ class Tester  extends Actor{
 }
 
 object Tester{
-  var props: Props = props[Tester]
+  var props: Props = Props[Tester]
 
   case class Init()
 
