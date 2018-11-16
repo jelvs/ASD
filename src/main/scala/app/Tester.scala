@@ -1,8 +1,8 @@
-package layers
+package app
 
 import akka.actor.{Actor, Props}
+import app.Tester.{sendPub, sendSub, sendUnsub}
 import layers.PublishSubscribe.PublishSubscribe.{DeliverPublish, Publish, Subscribe, UnSubscribe}
-import layers.Tester.{sendPub, sendSub, sendUnsub}
 
 import scala.util.Random
 
@@ -40,13 +40,14 @@ class Tester  extends Actor{
 
 
     case pubdeliver : DeliverPublish =>
-      println("Mensagem : " +pubdeliver.message)
+      println("Mensagem : " + pubdeliver.message)
 
   }
 
 }
 
 object Tester{
+
   //var props: Props = props[Tester]
 
   case class Init()

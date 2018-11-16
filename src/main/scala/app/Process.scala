@@ -21,13 +21,14 @@ object Process extends App {
 
     var contactNode = ""
     if (args.length > 1) {
-        contactNode = args(1)
+        contactNode = s"akka.tcp://${system.name}@" + args(1)
     }
 
     println(ownAddress)
 
 
     partialView ! PartialView.Init(ownAddress, contactNode)
+
 
 
     //    println("Contact Node: " + contactNode)

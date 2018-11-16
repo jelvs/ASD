@@ -1,7 +1,6 @@
-package layers
+package app
 
 import akka.actor.{Actor, DeadLetter, Props}
-import layers.MembershipLayer.PartialView
 
 class MyDeadLetterListener extends Actor with akka.actor.ActorLogging {
 

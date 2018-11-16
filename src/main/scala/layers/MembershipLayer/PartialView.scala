@@ -38,6 +38,7 @@ class PartialView extends Actor with Timers {
 
         //println("Process path: " + process.toString())
 
+        process ! NeighborUp(message.contactNode)
         process ! Join(ownAddress : String, message.contactNode : String)
         addNodeActiveView(message.contactNode)
 
@@ -123,7 +124,7 @@ class PartialView extends Actor with Timers {
     case getPeers: getPeers => {
       val split_Value: Int = math.min(getPeers.fanout, activeView.size)
       val peers = activeView.splitAt(split_Value)
-      sender ! peers
+
     }
 
 
