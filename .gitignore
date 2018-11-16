@@ -3,6 +3,8 @@
 
 ### Eclipse ###
 
+.src/main/resources/application.conf
+
 .metadata
 bin/
 tmp/
