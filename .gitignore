@@ -3,7 +3,7 @@
 
 ### Eclipse ###
 
-.src/**/.config
+.src/**/*.config
 .metadata
 bin/
 tmp/
