@@ -20,8 +20,8 @@ class PartialView extends Actor with Timers
   var passiveView: List[String] = List.empty
   val activeViewThreshold : Int = 4
   val passiveViewThreshold : Int = 35
-  val ARWL : Int = 3; //Active Random Walk Length
-  val PRWL : Int  = 2; //Passive Random Walk Length
+  val ARWL : Int = 2; //Active Random Walk Length
+  val PRWL : Int  = 1; //Passive Random Walk Length
   var processesAlive : Map[String, Double] = Map[String, Double]()
   var uAlive : Map[String, Double] = Map[String, Double]()
 
@@ -49,7 +49,7 @@ class PartialView extends Actor with Timers
       plumm ! MainPlummtree.Init(ownAddress)
 
       context.system.scheduler.schedule(60 seconds, 5 seconds)(heartbeatProcedure())
-      //context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
+      context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
 
     case join: Join =>
       printf("Recebi Join de: " + join.newNodeAddress +"\n")
@@ -93,6 +93,11 @@ class PartialView extends Actor with Timers
 
         val plummtree = context.actorSelection("/user/MainPlummtree")
         plummtree ! NeighborDown(disconnect.disconnectNode)
+
+        /*
+        if(activeView.isEmpty)
+          promoteProcessToActiveView()
+        */
       }
 
     case getPeers: getPeers =>
@@ -174,11 +179,13 @@ class PartialView extends Actor with Timers
         dropRandomNodeActiveView()
       }
       activeView = activeView :+ node
+
+      println("active View : ")
+      activeView.foreach(aView => println("\t" + aView.toString))
+
       return true
     }
 
-    println("active View : ")
-    activeView.foreach(aView => println("\t" + aView.toString))
     false
   }
 

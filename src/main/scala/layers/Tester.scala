@@ -3,14 +3,36 @@ package layers
 import akka.actor.{Actor, Props}
 import layers.PublishSubscribe.PublishSubscribe.{DeliverPublish, Publish, Subscribe, UnSubscribe}
 import layers.Tester.{sendPub, sendSub, sendUnsub}
-
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
+import scala.concurrent.duration._
 
 class Tester  extends Actor{
 
   val PUBLISH_SUBSCRIBE_ACTOR_NAME = "/user/PublishSubscribe"
   var topics : List[String] = List.empty
   var messages: List[String] = List.empty
+
+  def subscribeShit(): Unit = {
+    val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+    val toSub = Random.shuffle(topics).head
+    printf("Vou subscrever esta merda: " + toSub + "\n")
+    subActor ! Subscribe(toSub)
+  }
+
+  def unSubShit(): Unit = {
+    val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+    val toSub = Random.shuffle(topics).head
+    subActor ! UnSubscribe(toSub)
+  }
+
+  def publishShit() : Unit = {
+    val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+    val topic = Random.shuffle(topics).head
+    val msg = Random.shuffle(topics).head
+    printf("Vou publicar esta merda: " + msg + " neste topico de merda " + topic +"\n")
+    subActor ! Publish(topic, msg)
+  }
 
   override def receive: Receive = {
 
@@ -22,21 +44,18 @@ class Tester  extends Actor{
         messages = messages :+ ("vai pro crlh " + i +" vezes")
       }
 
+      context.system.scheduler.schedule(180 seconds, 5 seconds)(subscribeShit())
+      context.system.scheduler.schedule(200 seconds, 5 seconds)(publishShit())
+
+
     case sendSub : sendSub =>
-      val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
-      val toSub = Random.shuffle(topics).head
-      subActor ! Subscribe(toSub)
+      subscribeShit()
 
     case sendUnSub : sendUnsub =>
-      val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
-      val toSub = Random.shuffle(topics).head
-      subActor ! UnSubscribe(toSub)
+      unSubShit()
 
     case publish: sendPub =>
-      val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
-      val topic = Random.shuffle(topics).head
-      val msg = Random.shuffle(topics).head
-      subActor ! Publish(topic, msg)
+      publishShit()
 
 
     case pubdeliver : DeliverPublish =>
