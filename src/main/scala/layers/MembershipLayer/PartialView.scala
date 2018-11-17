@@ -48,7 +48,7 @@ class PartialView extends Actor with Timers
       val plumm = context.actorSelection("/user/MainPlummtree")
       plumm ! MainPlummtree.Init(ownAddress)
 
-      context.system.scheduler.schedule(60 seconds, 60 seconds)(heartbeatProcedure())
+      context.system.scheduler.schedule(60 seconds, 25 seconds)(heartbeatProcedure())
       context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
 
     case join: Join =>
