@@ -17,7 +17,7 @@ class Tester  extends Actor{
   def subscribeShit(): Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val toSub = Random.shuffle(topics).head
-    printf("Vou subscrever esta merda: " + toSub + "\n")
+    printf("Vou subscrever o topico: " + toSub + "\n")
     subActor ! Subscribe(toSub)
   }
 
@@ -30,23 +30,24 @@ class Tester  extends Actor{
   def publishShit() : Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val topic = Random.shuffle(topics).head
-    val msg = Random.shuffle(topics).head
-    printf("Vou publicar esta merda: " + msg + " neste topico de merda " + topic +"\n")
+    val msg = Random.shuffle(messages).head
+    printf("Vou publicar: " + msg + " neste topico " + topic +"\n")
     subActor ! Publish(topic, msg)
   }
 
   override def receive: Receive = {
 
     case init :  Tester.Init =>
+      printf("A iniciar tester...\n")
       var i : Int = 1
       while(i<=30) {
         i += 1
-        topics = topics :+ ("topics" + i)
-        messages = messages :+ ("vai pro crlh " + i +" vezes")
+        topics = topics :+ ("topico" + i)
+        messages = messages :+ ("Vamos chumbar a ASD " + i +" vezes")
       }
 
-      context.system.scheduler.schedule(180 seconds, 15 seconds)(subscribeShit())
-     context.system.scheduler.schedule(200 seconds, 15 seconds)(publishShit())
+     context.system.scheduler.schedule(70 seconds, 15 seconds)(subscribeShit())
+     //context.system.scheduler.schedule(75 seconds, 30 seconds)(publishShit())
 
 
     case sendSub : sendSub =>
@@ -60,7 +61,7 @@ class Tester  extends Actor{
 
 
     case pubdeliver : DeliverPublish =>
-      println("Mensagem : " +pubdeliver.message)
+      println("Mensagem do topic: "+ pubdeliver.topic +" com contenudo: " +pubdeliver.message + "\n")
 
   }
 
