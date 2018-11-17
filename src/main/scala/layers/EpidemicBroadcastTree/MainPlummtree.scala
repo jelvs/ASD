@@ -17,7 +17,7 @@ import scala.concurrent.duration._
 class MainPlummtree extends Actor with Timers {
 
   val AKKA_IP_PREPEND  = "akka.tcp://"
-  val ACTOR_NAME: String = "/user/MainPlummtree"
+  val ACTOR_NAME: String = "/user/Plummtree"
   val PUBLISH_SUBSCRIBE_ACTOR_NAME = "/user/PublishSubscribe"
   val PARTIAL_VIEW_ACTOR_NAME = "/user/PartialView"
   val FANOUT = 4

@@ -42,7 +42,7 @@ class PartialView extends Actor with Timers {
         process ! Join(ownAddress : String, message.contactNode : String)
 
         addNodeActiveView(message.contactNode)
-        process ! NeighborUp(message.contactNode)
+        process2 ! NeighborUp(message.contactNode)
 
         context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
       }
@@ -59,7 +59,7 @@ class PartialView extends Actor with Timers {
       //println("Received Join from: " + sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
 
-      val process = context.actorSelection(s"${sender.path.address.toString}/user/Plummtree")
+      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
       process ! NeighborUp(sender.path.address.toString)
 
       activeView.filter(node => !node.equals(sender.path.address.toString)).foreach(node => {
@@ -78,17 +78,17 @@ class PartialView extends Actor with Timers {
 
 
         val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
-        val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborUp(forwardJoin.newNode)
-        //println("Added to active View: " + forwardJoin.newNode)
+        val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process2 ! AddNew()
+
 
       } else {
         if (forwardJoin.arwl == PRWL) {
           addNodePassiveView(forwardJoin.newNode)
         }
 
-        //TODO : Ask Prof Try unit all nodes
+
         try {
           val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
             && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.contactNode)))).head
@@ -123,11 +123,10 @@ class PartialView extends Actor with Timers {
     }
 
 
-    case getPeers: getPeers => {
-      val split_Value: Int = math.min(getPeers.fanout, activeView.size)
-      val peers = activeView.splitAt(split_Value)
-
-    }
+    case getPeers: getPeers =>
+      val split_Value : Int = math.min(getPeers.fanout, activeView.size)
+      val peers : List[String] = activeView.splitAt(split_Value)._1
+      sender ! peers
 
 
     case askToPromote(priority) => {
@@ -145,6 +144,8 @@ class PartialView extends Actor with Timers {
 
 
     case addNewtoActive: AddNew => {
+      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+      process ! NeighborUp(sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
     }
 
@@ -386,7 +387,7 @@ class PartialView extends Actor with Timers {
     activeView.foreach(aView => println("\t" + aView.toString))
 
 
-    val process = context.actorSelection(s"${nodeAddress}/user/Plummtree")
+    val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
     process ! NeighborDown(nodeAddress)
 
 
