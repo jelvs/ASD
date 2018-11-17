@@ -65,7 +65,8 @@ class PartialView extends Actor with Timers
       })
 
     case forwardJoin: ForwardJoin =>
-      if (forwardJoin.arwl == 0 || activeView.size == 1) {
+      val forwardTargets = activeView.filter(node => !node.equals(forwardJoin.newNode) || !node.equals(forwardJoin.senderAddress))
+      if (forwardJoin.arwl == 0 || activeView.size == 1 || forwardTargets.isEmpty) {
         //printf("A Adicionar por forward join\n")
         val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process ! NeighborRequest(1, ownAddress)
@@ -79,7 +80,7 @@ class PartialView extends Actor with Timers
           //printf("Vou adicionar: " + forwardJoin.newNode + " a passiva\n")
           addNodePassiveView(forwardJoin.newNode)
         }
-        val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(forwardJoin.newNode))).head
+        val neighborAddress: String = Random.shuffle(forwardTargets).head
         val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
         neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, ownAddress)
       }
