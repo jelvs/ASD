@@ -29,8 +29,8 @@ class PartialView extends Actor with Timers {
 
 
     case message: PartialView.Init => {
-      val process2 = context.actorSelection(ownAddress.concat(ACTOR_NAMEE))
-      process2 ! MainPlummtree.Init(message.contactNode)
+      val process2 = context.actorSelection(s"${ownAddress}/user/Plummtree")
+
       if (!message.contactNode.equals("")) {
 
         ownAddress = message.ownAddress
@@ -42,11 +42,16 @@ class PartialView extends Actor with Timers {
         process ! Join(ownAddress : String, message.contactNode : String)
 
         addNodeActiveView(message.contactNode)
+
         process2 ! NeighborUp(message.contactNode)
+
+
+
+
 
         context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
       }
-
+      process2 ! MainPlummtree.Init(message.contactNode)
       context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
 
       context.system.scheduler.schedule(0 seconds, 5 seconds)((searchFailedProcesses()))
@@ -58,11 +63,10 @@ class PartialView extends Actor with Timers {
 
       //println("Received Join from: " + sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
-
       val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
       process ! NeighborUp(sender.path.address.toString)
 
-      activeView.filter(node => !node.equals(sender.path.address.toString)).foreach(node => {
+      activeView.filter(node => !node.equals(sender.path.address.toString) && !node.equals(ownAddress)).foreach(node => {
         val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME))
         remoteProcess ! ForwardJoin(sender.path.address.toString, ARWL, ownAddress, ownAddress)
         //println("Sending ForwardJoin to : " + remoteProcess)
@@ -71,16 +75,19 @@ class PartialView extends Actor with Timers {
 
 
     case forwardJoin: ForwardJoin => {
+      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
       //println("Received ForwardJoin from " + sender.path.address.toString + " with arwl = " + forwardJoin.arwl)
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
 
+
+        process ! NeighborUp(forwardJoin.newNode)
         addNodeActiveView(forwardJoin.newNode)
 
 
-        val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
-        process ! NeighborUp(forwardJoin.newNode)
         val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
         process2 ! AddNew()
+
+
 
 
       } else {
@@ -100,12 +107,17 @@ class PartialView extends Actor with Timers {
           //println("Sending ForwardJoin to: " + neighborMembershipActor + " ARWL: " + forwardJoin.arwl)
         } catch {
           case ex: NoSuchElementException => {
+            process ! NeighborUp(forwardJoin.newNode)
             addNodeActiveView(forwardJoin.newNode)
             val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
             process2 ! AddNew()
+
+
+
           }
         }
       }
+
 
 
     }
@@ -147,6 +159,7 @@ class PartialView extends Actor with Timers {
       val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
       process ! NeighborUp(sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
+
     }
 
     /*case nodeFailure: PartialView.NodeFailure => {
@@ -276,8 +289,8 @@ class PartialView extends Actor with Timers {
       //println("ProcessAliveAddAlive: " + node)
     }
 
-    println("active View : ")
-    activeView.foreach(aView => println("\t" + aView.toString))
+    /*println("active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))*/
 
   }
 
