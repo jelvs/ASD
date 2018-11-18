@@ -47,7 +47,7 @@ class Tester  extends Actor{
       }
 
      context.system.scheduler.schedule(70 seconds, 15 seconds)(subscribeShit())
-     context.system.scheduler.schedule(75 seconds, 30 seconds)(publishShit())
+     //context.system.scheduler.schedule(75 seconds, 30 seconds)(publishShit())
 
 
     case sendSub : sendSub =>

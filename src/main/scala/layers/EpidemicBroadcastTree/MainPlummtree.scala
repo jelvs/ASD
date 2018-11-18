@@ -22,6 +22,14 @@ class MainPlummtree extends Actor with Timers {
   val PARTIAL_VIEW_ACTOR_NAME = "/user/PartialView"
   val FANOUT = 4
 
+
+  var MessagesReceived : Int = 0
+  var totalMessagesReceived : Int = 0
+  var MessagesSent : Int = 0
+  var totalMessagesSent : Int = 0
+
+
+
   var eagerPushPeers: List[String] = List.empty
   var lazyPushPeers: List[String] = List.empty
   var lazyQueue: List[GossipMessage] = List.empty
@@ -247,7 +255,7 @@ class MainPlummtree extends Actor with Timers {
 
   }
 
-  
+
 }
 
 object MainPlummtree {
@@ -279,6 +287,9 @@ object MainPlummtree {
   case class BroadCastDeliver(message: Any, messageId: Int)
 
   case class DirectDeliver(message: Any, messageId: Int)
+
+
+  case class Stats(nodeAddress: String)
 }
 
 
