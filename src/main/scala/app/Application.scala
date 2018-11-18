@@ -46,8 +46,11 @@ object Application extends App {
         println("Messages Statistics from: " + sender.path.address.toString)
         println ()
 
-        println ("\t - Messages Sent: " + stats.totalMessagesSent)
-        println ("\t - Messages Received: " + stats.totalMessagesReceived)
+        println ("---------------------------------------------------------")
+        println ("\t - Total Messages Sent: " + stats.totalMessagesSent)
+        println ("\t - Total Messages Received: " + stats.totalMessagesReceived)
+        println ("\t - Messages Received: " + stats.messagesReceived)
+        println ("---------------------------------------------------------")
 
 
       }
@@ -59,6 +62,6 @@ object Application extends App {
 
 
   }
-  case class ShowStats(totalMessagesSent: Int, totalMessagesReceived: Int)
+  case class ShowStats(totalMessagesSent: Int, totalMessagesReceived: Int, messagesReceived: Int)
 
 }

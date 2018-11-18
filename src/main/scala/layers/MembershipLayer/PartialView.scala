@@ -276,7 +276,7 @@ class PartialView extends Actor with Timers {
     }
 
     println("active View : ")
-    activeView.foreach(aView => println("\t" + aView.toString + "Active View Print"))
+    activeView.foreach(aView => println("\t" + aView.toString))
 
   }
 

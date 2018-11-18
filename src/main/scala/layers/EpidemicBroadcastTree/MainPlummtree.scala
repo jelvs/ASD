@@ -214,7 +214,8 @@ class MainPlummtree extends Actor with Timers {
       }
 
     case Stats => {
-      sender ! ShowStats(totalMessagesSent, totalMessagesReceived)
+
+      sender ! ShowStats(totalMessagesSent, totalMessagesReceived, receivedMessages.size)
     }
 
   }
