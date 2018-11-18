@@ -70,7 +70,7 @@ class MainPlummtree extends Actor with Timers {
       //printf("Broadcasting: " + messageId + "\n")
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
-      publishSubscribeActor ! BroadCastDeliver(broadCast.message)
+      publishSubscribeActor ! BroadCastDeliver(broadCast.message, messageId)
       receivedMessages = receivedMessages :+ messageId
 
     case gossipReceive: GossipMessage =>
@@ -78,7 +78,7 @@ class MainPlummtree extends Actor with Timers {
       if (!receivedMessages.contains(gossipReceive.messageId)) {
        // printf("Recieved Message for the firsrt time: " + gossipReceive.messageId + "\n")
         val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
-        publishSubscribeActor ! BroadCastDeliver(gossipReceive.message)
+        publishSubscribeActor ! BroadCastDeliver(gossipReceive.message, gossipReceive.messageId)
         receivedMessages = receivedMessages :+ gossipReceive.messageId
 
         //TODO: Melhorar isto xD
@@ -163,6 +163,14 @@ class MainPlummtree extends Actor with Timers {
 
       //println("Eager push peers: ")
       //eagerPushPeers.foreach(aView => println("\t" + aView.toString))
+
+    case directDeliver: DirectDeliver =>
+      if(!receivedMessages.contains(directDeliver.messageId)){
+        receivedMessages = receivedMessages :+ directDeliver.messageId
+        val PubSubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
+        PubSubActor ! BroadCastDeliver(directDeliver.message, directDeliver.messageId)
+      }
+
   }
 
   def getMessage(messageId: Int): GossipMessage ={
@@ -296,7 +304,9 @@ object MainPlummtree {
 
   case class Optimization( messageId: Int, round: Int, sender: String)
 
-  case class BroadCastDeliver(message: Any)
+  case class BroadCastDeliver(message: Any, messageId: Int)
+
+  case class DirectDeliver(message: Any, messageId: Int)
 }
 
 

@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.pattern.ask
 import akka.actor.{Actor, ActorRef, ActorSelection, Props}
 import akka.util.Timeout
-import layers.EpidemicBroadcastTree.MainPlummtree.{BroadCastDeliver, Broadcast, NeighborDown, NeighborUp}
+import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
 import layers.PublishSubscribe.PublishSubscribe._
 import layers.Tester
@@ -77,24 +77,29 @@ class PublishSubscribe  extends Actor
 
     case broadCastDeliver: BroadCastDeliver =>
       val message : Any = broadCastDeliver.message
-      val publication = message.asInstanceOf[Publish]
-     // printf("passei o erro\n")
+      message match {
+        case publication: Publish => {
+          if (mySubscriptions.contains(publication.topic)) {
+            val tester = context.actorSelection("/user/Tester")
+            tester ! DeliverPublish(publication.topic, publication.message)
+          }
+
+          try {
+            val interested_Neighbors = neighborSubscriptions(publication.topic)
+            for (neighborTuple <- interested_Neighbors) {
+              val neiActor = context.actorSelection(neighborTuple._1.concat(PLUM_TREE_ACTOR_NAME))
+              neiActor ! DirectDeliver(broadCastDeliver.message, broadCastDeliver.messageId)
+            }
+          } catch {
+            case _: NoSuchElementException => //Do nothing no nei subscribe this
+          }
+        }
+        case other => printf(other.getClass +"\n")
+      }
+
+        // printf("passei o erro\n")
       //printf("Recebi msg de topico " + publication.topic + " para ir " + publication.message + "\n")
 
-      if (mySubscriptions.contains(publication.topic)) {
-          val tester = context.actorSelection("/user/Tester")
-          tester ! DeliverPublish(publication.topic, publication.message)
-      }
-
-      try {
-        val interested_Neighbors = neighborSubscriptions(publication.topic)
-        for (neighborTuple <- interested_Neighbors) {
-          val neiActor = context.actorSelection(neighborTuple._1.concat(ACTOR_NAME))
-          neiActor ! BroadCastDeliver(broadCastDeliver)
-        }
-      } catch {
-        case _: NoSuchElementException => //Do nothing no nei subscribe this
-      }
 
 
     case neighborSubscription: NeighborSubscription =>
