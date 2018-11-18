@@ -7,6 +7,7 @@ import java.util.concurrent.{TimeUnit, TimeoutException}
 import akka.pattern.ask
 import akka.actor.{Actor, Props, Timers}
 import akka.util.Timeout
+import app.Application.ShowStats
 import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
 import layers.PublishSubscribe.PublishSubscribe
@@ -28,6 +29,15 @@ class MainPlummtree extends Actor with Timers {
   var missing: List[IHave] = List.empty
   var receivedMessages: List[Int] = List.empty
   var ownAddress: String = ""
+
+
+
+  var MessagesReceived : Int = 0
+  var totalMessagesReceived : Int = 0
+  var MessagesSent : Int = 0
+  var totalMessagesSent : Int = 0
+
+
 
 
   override def receive: PartialFunction[Any, Unit] = {
@@ -167,13 +177,17 @@ class MainPlummtree extends Actor with Timers {
       eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case directDeliver: DirectDeliver =>
-      if(!receivedMessages.contains(directDeliver.messageId)){
+      if(!receivedMessages.contains(directDeliver.messageId)) {
         receivedMessages = receivedMessages :+ directDeliver.messageId
         val PubSubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
         PubSubActor ! BroadCastDeliver(directDeliver.message, directDeliver.messageId)
       }
 
+    case Stats => {
+      sender ! ShowStats(totalMessagesSent, totalMessagesReceived)
+    }
   }
+
 
   def getMessage(messageId: Int): GossipMessage ={
 
@@ -309,6 +323,8 @@ object MainPlummtree {
   case class BroadCastDeliver(message: Any, messageId: Int)
 
   case class DirectDeliver(message: Any, messageId: Int)
+
+  case class Stats(nodeAddress: String)
 }
 
 
