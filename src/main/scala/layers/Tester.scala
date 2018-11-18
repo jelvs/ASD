@@ -27,7 +27,7 @@ class Tester  extends Actor{
     subActor ! UnSubscribe(toSub)
   }
 
-  def publish() : Unit = {
+  def publishFunc() : Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val topic = Random.shuffle(topics).head
     val msg = Random.shuffle(messages).head
@@ -57,7 +57,7 @@ class Tester  extends Actor{
       unSub()
 
     case publish: sendPub =>
-      publish()
+      publishFunc()
 
 
     case pubdeliver : DeliverPublish =>
