@@ -451,4 +451,3 @@ object PartialView {
   case class askToPromote(priority: String)
 
 }
-

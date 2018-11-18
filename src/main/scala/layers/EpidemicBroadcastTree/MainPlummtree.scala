@@ -67,7 +67,7 @@ class MainPlummtree extends Actor with Timers {
       val messageBytes = toByteArray(broadCast.message)
       val totalMessageBytes = messageBytes ++ ownAddress.getBytes
       val messageId = scala.util.hashing.MurmurHash3.bytesHash(totalMessageBytes)
-      //printf("Broadcasting: " + messageId + "\n")
+      printf("Broadcasting: " + messageId + "\n")
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
       publishSubscribeActor ! BroadCastDeliver(broadCast.message, messageId)
@@ -76,7 +76,7 @@ class MainPlummtree extends Actor with Timers {
     case gossipReceive: GossipMessage =>
 
       if (!receivedMessages.contains(gossipReceive.messageId)) {
-       // printf("Recieved Message for the firsrt time: " + gossipReceive.messageId + "\n")
+        printf("Recieved Message for the firsrt time: " + gossipReceive.messageId + "\n")
         val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
         publishSubscribeActor ! BroadCastDeliver(gossipReceive.message, gossipReceive.messageId)
         receivedMessages = receivedMessages :+ gossipReceive.messageId
@@ -99,7 +99,7 @@ class MainPlummtree extends Actor with Timers {
         //Optimization(gossipReceive.messageId, gossipReceive.round, gossipReceive.sender)
 
       }else{
-      //    printf("Already Recieved Message : " + gossipReceive.messageId + "this time sent from "+ gossipReceive.sender + " on round "  + gossipReceive.round +"\n")
+          printf("Already Recieved Message : " + gossipReceive.messageId + "this time sent from "+ gossipReceive.sender + " on round "  + gossipReceive.round +"\n")
           val actorRef = context.actorSelection(gossipReceive.sender + ACTOR_NAME)
           eagerPushPeers = eagerPushPeers.filter(!_.equals(gossipReceive.sender))
           if(!lazyPushPeers.contains(gossipReceive.sender)) {
@@ -161,8 +161,8 @@ class MainPlummtree extends Actor with Timers {
       val pubsubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       pubsubActor ! neighborUp
 
-      //println("Eager push peers: ")
-      //eagerPushPeers.foreach(aView => println("\t" + aView.toString))
+      println("Eager push peers: ")
+      eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case directDeliver: DirectDeliver =>
       if(!receivedMessages.contains(directDeliver.messageId)){
