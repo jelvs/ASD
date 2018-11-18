@@ -4,11 +4,8 @@ import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
-import layers.MembershipLayer.PartialView.HeartbeatProcedure
 import layers.PublishSubscribe.PublishSubscribe
 import layers.Tester
-
-import scala.concurrent.duration.FiniteDuration
 
 
 
@@ -30,7 +27,8 @@ object Process extends App {
 
     var contactNode = ""
     if (args.length > 1) {
-        contactNode = args(1)
+        contactNode =  s"akka.tcp://${system.name}@${args(1)}"
+        println("Contact: " + contactNode)
     }
 
     println(ownAddress)
