@@ -7,6 +7,7 @@ import java.util.concurrent.{TimeUnit, TimeoutException}
 import akka.pattern.ask
 import akka.actor.{Actor, ActorSelection, Props, Timers}
 import akka.util.Timeout
+import app.Application.ShowStats
 import layers.EpidemicBroadcastTree.MainPlummtree._
 import layers.MembershipLayer.PartialView.getPeers
 import layers.PublishSubscribe.PublishSubscribe
@@ -165,6 +166,10 @@ class MainPlummtree extends Actor with Timers {
         PubSubActor ! BroadCastDeliver(directDeliver.message, directDeliver.messageId)
       }
 
+    case Stats => {
+      sender ! ShowStats(totalMessagesSent, totalMessagesReceived)
+    }
+
   }
 
   def getMessage(messageId: Int): GossipMessage ={
@@ -287,7 +292,6 @@ object MainPlummtree {
   case class BroadCastDeliver(message: Any, messageId: Int)
 
   case class DirectDeliver(message: Any, messageId: Int)
-
 
   case class Stats(nodeAddress: String)
 }
