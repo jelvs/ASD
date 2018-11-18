@@ -289,8 +289,8 @@ class PartialView extends Actor with Timers {
       //println("ProcessAliveAddAlive: " + node)
     }
 
-    /*println("active View : ")
-    activeView.foreach(aView => println("\t" + aView.toString))*/
+    println("active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
 
   }
 

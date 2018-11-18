@@ -157,7 +157,9 @@ class MainPlummtree extends Actor with Timers {
       eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case neighborUp: NeighborUp =>
-      eagerPushPeers = eagerPushPeers :+ neighborUp.nodeAddress
+      if(!eagerPushPeers.contains(neighborUp.nodeAddress)) {
+        eagerPushPeers = eagerPushPeers :+ neighborUp.nodeAddress
+      }
       val pubsubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       pubsubActor ! neighborUp
 
