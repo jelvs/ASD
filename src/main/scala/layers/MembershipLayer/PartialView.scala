@@ -16,6 +16,7 @@ class PartialView extends Actor with Timers {
   var ownAddress: String = "" //actor re f
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
+
   val activeViewThreshold = 4
   val passiveViewThreashold = 35
   val ARWL = 5; //Active Random Walk Length
@@ -53,6 +54,7 @@ class PartialView extends Actor with Timers {
 
     case join: Join => {
 
+
       //println("Received Join from: " + sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
 
@@ -65,6 +67,7 @@ class PartialView extends Actor with Timers {
         //println("Sending ForwardJoin to : " + remoteProcess)
       })
     }
+
 
 
     case forwardJoin: ForwardJoin => {
@@ -102,6 +105,7 @@ class PartialView extends Actor with Timers {
             process2 ! AddNew()
           }
         }
+
       }
 
 
@@ -115,6 +119,8 @@ class PartialView extends Actor with Timers {
 
         processesAlive -= disconnect.disconnectNode
         askPassiveToPromote(disconnect.disconnectNode) //acho que nao é preciso
+
+
 
       }
     }
@@ -267,6 +273,7 @@ class PartialView extends Actor with Timers {
       }
       activeView = activeView :+ node
 
+
       val timer: Double = System.currentTimeMillis()
       processesAlive += (node -> timer)
       println("ProcessAliveAddAlive: " + node)
@@ -274,6 +281,7 @@ class PartialView extends Actor with Timers {
 
     println("active View : ")
     activeView.foreach(aView => println("\t" + aView.toString))
+
 
   }
 
@@ -361,7 +369,9 @@ class PartialView extends Actor with Timers {
     for ((n, t) <- uAlive) {
       // more than 10 seconds
 
+
       if ((System.currentTimeMillis() - t) >= 10000) {
+
 
         permanentFailure(n)
 

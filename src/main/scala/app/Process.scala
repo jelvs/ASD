@@ -4,6 +4,13 @@ import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.MembershipLayer.PartialView
+import layers.MembershipLayer.PartialView.HeartbeatProcedure
+import layers.PublishSubscribe.PublishSubscribe
+import layers.Tester
+
+import scala.concurrent.duration.FiniteDuration
+
+
 
 
 object Process extends App {
@@ -17,7 +24,9 @@ object Process extends App {
     val system = ActorSystem("SystemName", config)
     val ownAddress = getOwnAddress(port)
     val partialView = system.actorOf(Props[PartialView], "PartialView")
-    val plummtree = system.actorOf(Props[MainPlummtree], "Plummtree")
+    val plummtree = system.actorOf(Props[MainPlummtree], "MainPlummtree")
+    val pubsub = system.actorOf(Props[PublishSubscribe], "PublishSubscribe")
+    val tester = system.actorOf(Props[Tester], "Tester")
 
     var contactNode = ""
     if (args.length > 1) {
