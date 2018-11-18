@@ -29,6 +29,11 @@ class MainPlummtree extends Actor with Timers {
   var receivedMessages: List[Int] = List.empty
   var ownAddress: String = ""
 
+  var MessagesReceived : Int = 0
+  var totalMessagesReceived : Int = 0
+  var MessagesSent : Int = 0
+  var totalMessagesSent : Int = 0
+
 
   override def receive: PartialFunction[Any, Unit] = {
     case init: MainPlummtree.Init =>
@@ -265,6 +270,8 @@ object MainPlummtree {
   case class Optimization( messageId: Int, round: Int, sender: String)
 
   case class BroadCastDeliver(message: Any)
+
+  case class Stats(nodeAddress: String)
 }
 
 

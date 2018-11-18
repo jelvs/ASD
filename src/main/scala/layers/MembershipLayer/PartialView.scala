@@ -85,7 +85,6 @@ class PartialView extends Actor with Timers {
           addNodePassiveView(forwardJoin.newNode)
         }
 
-        //TODO : Ask Prof Try unit all nodes
         try {
           val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
             && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.contactNode)))).head
