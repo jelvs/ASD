@@ -15,8 +15,12 @@ object Application extends App {
 
     val line = scala.io.StdIn.readLine()
     var cmd: Array[String] = line.split("\\s")
+
     cmd(0) match {
-      case "ms" if (cmd.length == 2) => Stats(cmd(1))
+
+      case "ms" if (cmd.length == 2) => stats(cmd(1))
+      case "" => println()
+
       case _ => println("Wrong command")
     }
 
@@ -33,6 +37,7 @@ object Application extends App {
     override def receive = {
       case Stats(p) => {
         val process = system.actorSelection(s"${p}/user/MainPlummtree")
+        println("Process: " + process)
         process ! Stats
 
       }
