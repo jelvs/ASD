@@ -14,20 +14,20 @@ class Tester  extends Actor{
   var topics : List[String] = List.empty
   var messages: List[String] = List.empty
 
-  def subscribeShit(): Unit = {
+  def subscribe(): Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val toSub = Random.shuffle(topics).head
     printf("Vou subscrever o topico: " + toSub + "\n")
     subActor ! Subscribe(toSub)
   }
 
-  def unSubShit(): Unit = {
+  def unSub(): Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val toSub = Random.shuffle(topics).head
     subActor ! UnSubscribe(toSub)
   }
 
-  def publishShit() : Unit = {
+  def publish() : Unit = {
     val subActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
     val topic = Random.shuffle(topics).head
     val msg = Random.shuffle(messages).head
@@ -46,18 +46,18 @@ class Tester  extends Actor{
         messages = messages :+ ("Vamos chumbar a ASD " + i +" vezes")
       }
 
-     context.system.scheduler.schedule(70 seconds, 15 seconds)(subscribeShit())
-     //context.system.scheduler.schedule(75 seconds, 30 seconds)(publishShit())
+     context.system.scheduler.schedule(70 seconds, 15 seconds)(subscribe())
+     //context.system.scheduler.schedule(75 seconds, 30 seconds)(publish())
 
 
     case sendSub : sendSub =>
-      subscribeShit()
+      subscribe()
 
     case sendUnSub : sendUnsub =>
-      unSubShit()
+      unSub()
 
     case publish: sendPub =>
-      publishShit()
+      publish()
 
 
     case pubdeliver : DeliverPublish =>
