@@ -24,11 +24,8 @@ class MainPlummtree extends Actor with Timers {
   val FANOUT = 4
 
 
-  var MessagesReceived : Int = 0
   var totalMessagesReceived : Int = 0
-  var MessagesSent : Int = 0
   var totalMessagesSent : Int = 0
-
 
 
   var eagerPushPeers: List[String] = List.empty
@@ -63,6 +60,9 @@ class MainPlummtree extends Actor with Timers {
 
     case broadCast: Broadcast =>
 
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
+
       val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       val messageBytes = toByteArray(broadCast.message)
       val totalMessageBytes = messageBytes ++ ownAddress.getBytes
@@ -70,14 +70,25 @@ class MainPlummtree extends Actor with Timers {
       eagerPush(broadCast.message, messageId, 0, ownAddress)
       lazyPush(broadCast.message, messageId, 0, ownAddress)
       publishSubscribeActor ! BroadCastDeliver(broadCast.message, messageId)
+
+      //TODO: AQUI Sent
+      totalMessagesSent = totalMessagesSent + 1;
+
       receivedMessages = receivedMessages :+ messageId
 
     case gossipReceive: GossipMessage =>
+
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
 
       if (!receivedMessages.contains(gossipReceive.messageId)) {
         //printf("Recieved Message for the firsrt time: " + gossipReceive.messageId + "\n")
         val publishSubscribeActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
         publishSubscribeActor ! BroadCastDeliver(gossipReceive.message, gossipReceive.messageId)
+
+        //TODO: AQUI Sent
+        totalMessagesSent = totalMessagesSent + 1;
+
         receivedMessages = receivedMessages :+ gossipReceive.messageId
 
         //TODO: Melhorar isto xD
@@ -100,9 +111,17 @@ class MainPlummtree extends Actor with Timers {
           eagerPushPeers = eagerPushPeers.filterNot(_ == gossipReceive.sender)
           if(!lazyPushPeers.contains(gossipReceive.sender))  lazyPushPeers = lazyPushPeers :+ gossipReceive.sender
           actorRef ! Prune(ownAddress)
+
+        //TODO: AQUI Sent
+        totalMessagesSent = totalMessagesSent + 1;
+
       }
 
     case prune: Prune =>
+
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
+
       eagerPushPeers = eagerPushPeers.filterNot( _ != prune.sender )
       if(!lazyPushPeers.contains(prune.sender))
         lazyPushPeers = lazyPushPeers :+ prune.sender
@@ -110,6 +129,10 @@ class MainPlummtree extends Actor with Timers {
 
     //TODO: Este timer da piça não deve trabalhar
     case iHave: IHave =>
+
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
+
      //printf("Recieved Ihave from " + iHave.sender + " of message " + iHave.messageId + "\n")
      if(!receivedMessages.contains(iHave.messageId)){
         if(!timers.isTimerActive(iHave.messageId)) {
@@ -130,7 +153,14 @@ class MainPlummtree extends Actor with Timers {
       val actorRef = context.actorSelection(firstAnnouncent.sender.concat(ACTOR_NAME))
       actorRef ! Graft(firstAnnouncent.messageId, firstAnnouncent.round, ownAddress)
 
+      //TODO: AQUI Sent
+      totalMessagesSent = totalMessagesSent + 1;
+
     case graft: Graft =>
+
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
+
       //printf("Recieved gfraft from " + graft.sender + " to send msg " + graft.messageId+"\n")
       if(!eagerPushPeers.contains(graft.sender))
         eagerPushPeers = eagerPushPeers :+ graft.sender
@@ -138,6 +168,9 @@ class MainPlummtree extends Actor with Timers {
       if( receivedMessages.contains(graft.messageId) ) {
         val gossipMessage: GossipMessage = getMessage(graft.messageId)
         sender ! gossipMessage
+
+        //TODO: AQUI Sent
+        totalMessagesSent = totalMessagesSent + 1;
       }
 
     case neighborDown: NeighborDown =>
@@ -146,6 +179,10 @@ class MainPlummtree extends Actor with Timers {
       missing = missing.filter( _.sender != neighborDown.nodeAddress )
       val pubsubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       pubsubActor ! neighborDown
+
+      /*//TODO: AQUI Sent (confirmar se adiciona)
+      totalMessagesSent = totalMessagesSent + 1;*/
+
     //  println("Eager push peers after nei down: ")
       eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
@@ -156,14 +193,24 @@ class MainPlummtree extends Actor with Timers {
       val pubsubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
       pubsubActor ! neighborUp
 
+      /*//TODO: AQUI Sent (confirmar se adiciona)
+      totalMessagesSent = totalMessagesSent + 1;*/
+
       println("Eager push peers: ")
       eagerPushPeers.foreach(aView => println("\t" + aView.toString))
 
     case directDeliver: DirectDeliver =>
+
+      //TODO: AQUI Receive
+      totalMessagesReceived = totalMessagesReceived + 1;
+
       if(!receivedMessages.contains(directDeliver.messageId)){
         receivedMessages = receivedMessages :+ directDeliver.messageId
         val PubSubActor = context.actorSelection(PUBLISH_SUBSCRIBE_ACTOR_NAME)
         PubSubActor ! BroadCastDeliver(directDeliver.message, directDeliver.messageId)
+
+        //TODO: AQUI Sent
+        totalMessagesSent = totalMessagesSent + 1;
       }
 
     case Stats => {
@@ -204,6 +251,8 @@ class MainPlummtree extends Actor with Timers {
       //printf("A mandar eager push para: " + peerAddress + " a mensagen "+ messageId+"\n")
       val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! GossipMessage(message, messageId, round, ownAddress)
+      //TODO: AQUI Sent
+      totalMessagesSent = totalMessagesSent + 1;
     }
   }
 
@@ -216,6 +265,8 @@ class MainPlummtree extends Actor with Timers {
       //printf("A mandar lazy push para: " + peerAddress + " a mensagen "+ messageId+"\n")
       val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
       actorRef ! ihave
+      //TODO: AQUI Sent
+      totalMessagesSent = totalMessagesSent + 1;
     }
   }
 
@@ -254,6 +305,10 @@ class MainPlummtree extends Actor with Timers {
         val actor2Ref = context.actorSelection(sender.concat(ACTOR_NAME))
         actorRef ! Graft(-1, missingMsg.round, ownAddress)
         actor2Ref ! Prune(ownAddress)
+
+        //TODO: AQUI Sent
+        totalMessagesSent = totalMessagesSent + 2;
+
       } //TODO: adicionar m//aximo
 
     }
