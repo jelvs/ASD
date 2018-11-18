@@ -1,330 +1,447 @@
 package layers.MembershipLayer
 
-import akka.actor.{Actor, ActorSelection, Props, Timers}
+import akka.actor.{Actor, Props, Timers}
 import layers.EpidemicBroadcastTree.MainPlummtree
 import layers.EpidemicBroadcastTree.MainPlummtree.{NeighborDown, NeighborUp}
 import layers.MembershipLayer.PartialView._
 
 import scala.concurrent.duration._
-import scala.util.Random
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Random
 
-
-class PartialView extends Actor with Timers
-{
-
-  val SYSTEM_NAME :String = "node"
-  val ACTOR_NAME :String = "/user/PartialView"
-  var ownAddress : String = "" //actor ref
+class PartialView extends Actor with Timers {
+  //val AKKA_IP_PREPEND  = "akka.tcp://"
+  val SYSTEM_NAME = "node"
+  val ACTOR_NAME = "/user/PartialView"
+  var ownAddress: String = "" //actor re f
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
-  val activeViewThreshold : Int = 4
-  val passiveViewThreshold : Int = 35
-  val ARWL : Int = 2; //Active Random Walk Length
-  val PRWL : Int  = 1; //Passive Random Walk Length
-  var processesAlive : Map[String, Double] = Map[String, Double]()
-  var uAlive : Map[String, Double] = Map[String, Double]()
 
-  //TODO: So adicionar quando se recebe msg positiva do outro node
+  val activeViewThreshold = 4
+  val passiveViewThreashold = 35
+  val ARWL = 5; //Active Random Walk Length
+  val PRWL = 5; //Passive Random Walk Length
+  var processesAlive = Map[String, Double]()
+  var uAlive = Map[String, Double]()
 
-  override def receive: PartialFunction[Any, Unit] = {
-    case message: PartialView.Init =>
-      ownAddress = message.ownAddress
-      var done : Boolean = false
-      var attempt : Int = 0
+
+  override def receive = {
+
+
+    case message: PartialView.Init => {
 
       if (!message.contactNode.equals("")) {
-          do{
-              attempt += 1
-              val conctactActor = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
-              addNodeActiveView(message.contactNode)
-              addAlive(message.contactNode)
-              conctactActor ! Join(message.ownAddress)
-              done = true
-          }while(!done && attempt <= 3 )
-          if(!done) {printf("Vou-me matar mas não sei como lelel \n") }
+
+        ownAddress = message.ownAddress
+
+
+        val process = context.actorSelection(message.contactNode.concat(ACTOR_NAME))
+
+        //println("Process path: " + process.toString())
+
+        process ! Join(ownAddress : String, message.contactNode : String)
+        addNodeActiveView(message.contactNode)
+
+        context.system.scheduler.schedule(30 seconds, 30 seconds)((sendRandomRefreshPassive()))
       }
 
-      val plumm = context.actorSelection("/user/MainPlummtree")
-      plumm ! MainPlummtree.Init(ownAddress)
+      context.system.scheduler.schedule(0 seconds, 5 seconds)(initHeartbeat())
 
-      context.system.scheduler.schedule(60 seconds, 60 seconds)(heartbeatProcedure())
-      context.system.scheduler.schedule(60 seconds, 40 seconds)(passiveViewShufflrProcedure())
+      context.system.scheduler.schedule(0 seconds, 5 seconds)((searchFailedProcesses()))
 
-    case join: Join =>
-      //printf("Recebi Join de: " + join.newNodeAddress +"\n")
-      addNodeActiveView(join.newNodeAddress)
-      addAlive(join.newNodeAddress)
+    }
 
-      val plummTreeActor = context.actorSelection("/user/MainPlummtree")
-      plummTreeActor ! NeighborUp(join.newNodeAddress)
 
-      activeView.filter(node => !node.equals(join.newNodeAddress)).foreach(node => {
+    case join: Join => {
+
+
+      //println("Received Join from: " + sender.path.address.toString)
+      addNodeActiveView(sender.path.address.toString)
+
+      val process = context.actorSelection(s"${sender.path.address.toString}/user/Plummtree")
+      process ! NeighborUp(sender.path.address.toString)
+
+      activeView.filter(node => !node.equals(sender.path.address.toString)).foreach(node => {
         val remoteProcess = context.actorSelection(node.concat(ACTOR_NAME))
-        remoteProcess ! ForwardJoin(join.newNodeAddress, ARWL, ownAddress)
+        remoteProcess ! ForwardJoin(sender.path.address.toString, ARWL, ownAddress, ownAddress)
+        //println("Sending ForwardJoin to : " + remoteProcess)
       })
+    }
 
-    case forwardJoin: ForwardJoin =>
-      val forwardTargets = activeView.filter(node => !node.equals(forwardJoin.newNode) || !node.equals(forwardJoin.senderAddress))
-      if (forwardJoin.arwl == 0 || activeView.size == 1 || forwardTargets.isEmpty) {
-        //printf("A Adicionar por forward join\n")
-        val process = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
-        process ! NeighborRequest(1, ownAddress)
-        if(addNodeActiveView(forwardJoin.newNode)) {
-          addAlive(forwardJoin.newNode)
-          val plummTreeActor = context.actorSelection("/user/MainPlummtree")
-          plummTreeActor ! NeighborUp(forwardJoin.newNode)
-        }
-      }else{
-        if(forwardJoin.arwl == PRWL){
-          //printf("Vou adicionar: " + forwardJoin.newNode + " a passiva\n")
+
+
+    case forwardJoin: ForwardJoin => {
+      //println("Received ForwardJoin from " + sender.path.address.toString + " with arwl = " + forwardJoin.arwl)
+      if (forwardJoin.arwl == 0 || activeView.size == 1) {
+
+        addNodeActiveView(forwardJoin.newNode)
+
+
+        val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+        val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
+        process ! NeighborUp(forwardJoin.newNode)
+        //println("Added to active View: " + forwardJoin.newNode)
+        process2 ! AddNew()
+
+      } else {
+        if (forwardJoin.arwl == PRWL) {
           addNodePassiveView(forwardJoin.newNode)
         }
-        val neighborAddress: String = Random.shuffle(forwardTargets).head
-        val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
-        neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, ownAddress)
+
+        //TODO : Ask Prof Try unit all nodes
+        try {
+          val neighborAddress: String = Random.shuffle(activeView.filter(n => !n.equals(sender.path.address.toString)
+            && !(n.equals(forwardJoin.newNode)) && !(n.equals(forwardJoin.contactNode)))).head
+
+          val neighborMembershipActor = context.actorSelection(neighborAddress.concat(ACTOR_NAME))
+
+
+          neighborMembershipActor ! ForwardJoin(forwardJoin.newNode, forwardJoin.arwl - 1, ownAddress, forwardJoin.contactNode)
+          //println("Sending ForwardJoin to: " + neighborMembershipActor + " ARWL: " + forwardJoin.arwl)
+        } catch {
+          case ex: NoSuchElementException => {
+            addNodeActiveView(forwardJoin.newNode)
+            val process2 = context.actorSelection(s"${forwardJoin.newNode}/user/PartialView")
+            process2 ! AddNew()
+          }
+        }
+
       }
 
 
-    case disconnect: Disconnect =>
-      if(activeView.contains(disconnect.disconnectNode)) {
+    }
+
+
+    case disconnect: Disconnect => {
+      if (activeView.contains(disconnect.disconnectNode)) {
         activeView = activeView.filter(!_.equals(disconnect.disconnectNode))
         addNodePassiveView(disconnect.disconnectNode)
+
         processesAlive -= disconnect.disconnectNode
+        askPassiveToPromote(disconnect.disconnectNode) //acho que nao é preciso
 
-        val plummtree = context.actorSelection("/user/MainPlummtree")
-        plummtree ! NeighborDown(disconnect.disconnectNode)
 
-        /*
-        if(activeView.isEmpty)
-          promoteProcessToActiveView()
-        */
+
       }
+    }
 
-    case getPeers: getPeers =>
-      val split_Value : Int = math.min(getPeers.fanout, activeView.size)
-      val peers : List[String] = activeView.splitAt(split_Value)._1
+
+    case getPeers: getPeers => {
+      val split_Value: Int = math.min(getPeers.fanout, activeView.size)
+      val peers = activeView.splitAt(split_Value)
       sender ! peers
+    }
 
-    /* ----------------------------------------------------------------------------------------*/
 
-    case _: HeartbeatProcedure =>
-      //printf("Vou Inspecionar\n")
-      for ((n, t) <- processesAlive) {
-        // 5 seconds heartbeat
-        if ((System.currentTimeMillis() - t) >= 5000) {
-        //  println("Vou ver se este gajo morreu: " + n)
-          rUAlive(n)
+    case askToPromote(priority) => {
+
+      if (priority.equals("High")) {
+        promoteProcessToActiveView(sender.path.address.toString)
+      } else {
+        if (activeView.size < activeViewThreshold) {
+          promoteProcessToActiveView(sender.path.address.toString)
         }
+
       }
 
-      for ((n, t) <- uAlive) {
-        // more than 10 seconds
-        if ((System.currentTimeMillis() - t) >= 7000 && !n.equals(ownAddress)) {
-          //println("Enter permanent Failure process " + n)
-          permanentFailure(n)
-        }
+    }
+
+
+    case addNewtoActive: AddNew => {
+      addNodeActiveView(sender.path.address.toString)
+    }
+
+    /*case nodeFailure: PartialView.NodeFailure => {
+      //activeView = activeView.filter( !_.equals(nodeFailure.nodeAddress))
+      permanentFailure(nodeFailure.nodeAddress)
+      askPassiveToPromote(nodeFailure.nodeAddress)
+    }*/
+
+
+    case receiveRefreshSendPassive: ReceiveRefreshSendPassive => {
+      receiveToRefreshSend(sender.path.address.toString, receiveRefreshSendPassive.nodesToRefresh)
+    }
+
+    case receiveRefreshPassive: ReceiveRefreshPassive => {
+      receiveToRefreshPassive(sender.path.address.toString, receiveRefreshPassive.nodesToRefresh)
+
+    }
+
+
+    case uThere: UThere => {
+
+
+      val process = context.actorSelection(s"${sender.path.address.toString}/user/PartialView")
+      process ! ImHere(sender.path.address.toString)
+    }
+
+
+
+
+
+
+
+    case imHere: ImHere => {
+      uAlive -= sender.path.address.toString
+      val timer: Double = System.currentTimeMillis()
+      processesAlive += (sender.path.address.toString -> timer)
+      println("ProcessAliveImHere: " + sender.path.address.toString)
+
+
+
+
+    }
+
+
+
+
+
+
+    case heartbeat: Heartbeat => {
+      //println("heartbeat from: " + sender.path.address.toString)
+      //println("Process Alive : " + processesAlive.get(sender.path.address.toString).get);
+      var timer: Double = System.currentTimeMillis()
+      if (processesAlive.contains(sender.path.address.toString)) {
+        processesAlive += (sender.path.address.toString -> timer)
+        println("ProcessAliveHeart: " + sender.path.address.toString)
+
       }
+    }
 
-    case uthere: UThere =>
-      val actor: ActorSelection = context.actorSelection(uthere.nodeAddress.concat(ACTOR_NAME))
-      actor ! ImHere(ownAddress)
-
-    case imHere: ImHere =>
-      //printf("Ta vivo: " +sender.path.address.toString+ "\n" )
-      if(activeView.contains(imHere.nodeAddress)) {
-        uAlive -= imHere.nodeAddress
-        val timer: Double = System.currentTimeMillis()
-        processesAlive += (imHere.nodeAddress -> timer)
-      }else{
-        sender ! Disconnect(ownAddress)
-      }
-
-    case neighborRequest: NeighborRequest =>
-      if(neighborRequest.priority == 1 || activeView.size < activeViewThreshold)  {
-       if(addNodeActiveView(neighborRequest.nodeAddress)) {
-         addAlive(neighborRequest.nodeAddress)
-         val plummtree = context.actorSelection("/user/MainPlummtree")
-         plummtree ! NeighborUp(neighborRequest.nodeAddress)
-       }
-      }
-
-    /*--------------------------------------------------------------------------------------------------*/
-
-    case _: PassiveViewProcedure =>
-
-      if(passiveView.nonEmpty) {
-        val neighbor: String = Random.shuffle(activeView).head
-        val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
-        val toSend: List[String] = Random.shuffle(passiveView.filter(node => !node.equals(neighbor)).take(3))
-        passiveView = passiveView.diff(toSend)
-        remoteProcess ! RefreshPassiveView(ownAddress, toSend)
-      }
-
-    case receiveRefreshSendPassive: RefreshPassiveView =>
-      val toSend : List[String] = Random.shuffle(passiveView.filter(node => !node.equals(receiveRefreshSendPassive.senderAddress)).take(3))
-      passiveView = passiveView.diff(toSend)
-      passiveView ++= receiveRefreshSendPassive.nodesToRefresh
-      sender ! RefreshPassiveViewReply(toSend)
-
-    case reply: RefreshPassiveViewReply =>
-      passiveView ++ reply.toSend
 
   }
 
 
-  /** Support Methods  **/
-  def addNodeActiveView(node: String): Boolean = {
+
+
+  def sendRandomRefreshPassive() {
+    if(passiveView.size >= 3) {
+      val neighbor: String = Random.shuffle(activeView).head;
+      val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
+      val list: List[String] =
+        Random.shuffle(passiveView.filter(node => !node.equals(neighbor) && !node.equals(ownAddress)).take(3))
+
+      list.foreach(node => {
+        passiveView.filter(!_.equals(node))
+      })
+
+      //println("sending Passive Nodes : ")
+      list.foreach(aView => println("\t" + aView.toString))
+
+      remoteProcess ! ReceiveRefreshSendPassive(ownAddress, list)
+    }else{}
+
+
+  }
+
+  def receiveToRefreshSend(senderAddress: String, nodesToRefresh: List[String]) = {
+
+    //println("Received Passive Nodes : ")
+    nodesToRefresh.foreach(aView => println("\t" + aView.toString))
+
+    val remoteProcess = context.actorSelection(senderAddress.concat(ACTOR_NAME))
+
+    val listToSend: List[String] =
+      Random.shuffle(passiveView.filter(node => !node.equals(senderAddress) && !node.equals(ownAddress)).take(3))
+    listToSend.foreach(node => {
+      passiveView.filter(!_.equals(node))
+    })
+
+    nodesToRefresh.foreach(newNode => {
+      passiveView = passiveView :+ newNode;
+    })
+
+    //println("Sending new Passive Nodes : ")
+    listToSend.foreach(aView => println("\t" + aView.toString))
+    remoteProcess ! ReceiveRefreshPassive(ownAddress, listToSend)
+
+
+  }
+
+
+  def receiveToRefreshPassive(senderAddress: String, nodesToRefresh: List[String]) = {
+    nodesToRefresh.foreach(newNode => {
+      passiveView = passiveView :+ newNode;
+    })
+  }
+
+
+  def addNodeActiveView(node: String) = {
     if (!activeView.contains(node) && !node.equals(ownAddress)) {
-      if(activeView.size == activeViewThreshold){
-        dropRandomNodeActiveView()
+      if (activeView.size == activeViewThreshold) {
+        dropRandomNodeActiveView();
       }
       activeView = activeView :+ node
 
-      println("active View : ")
-      activeView.foreach(aView => println("\t" + aView.toString))
 
-      return true
+      val timer: Double = System.currentTimeMillis()
+      processesAlive += (node -> timer)
+      println("ProcessAliveAddAlive: " + node)
     }
 
-    false
+    println("active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
+
+
   }
 
 
-  def dropRandomNodeActiveView(): Unit = {
-    val remoteProcessAdress : String = Random.shuffle(activeView).head
-    //println("vou remover da active: " + remoteProcessAdress)
+  def dropRandomNodeActiveView() = {
+    val remoteProcessAdress: String = Random.shuffle(activeView).head //gives node@ip:port
     val remoteActor = context.actorSelection(remoteProcessAdress.concat(ACTOR_NAME))
+
+
     remoteActor ! Disconnect(ownAddress)
+
     activeView = activeView.filter(!_.equals(remoteProcessAdress))
     addNodePassiveView(remoteProcessAdress)
   }
 
-  def addNodePassiveView(nodeAddress: String): Unit = {
+  def addNodePassiveView(nodeAddress: String) = {
+
     if (!passiveView.contains(nodeAddress) && !activeView.contains(nodeAddress) && !nodeAddress.equals(ownAddress)) {
-      if(passiveView.size == passiveViewThreshold) {
-        dropRandomNodePassiveView()
+      if (passiveView.size == passiveViewThreashold) {
+        dropRandomNodePassiveView();
       }
-      passiveView = passiveView :+ nodeAddress
-      //println("node added to passiveView : " + nodeAddress)
+      passiveView = passiveView :+ nodeAddress;
+      println("node added to passiveView : " + nodeAddress);
     }
   }
 
-  def dropRandomNodePassiveView(): Unit ={
+  def dropRandomNodePassiveView() = {
 
-    val remoteProcessAddress : String = Random.shuffle(passiveView).head
-    passiveView = passiveView.filter(!_.equals(remoteProcessAddress))
-   // printf(remoteProcessAddress + " removido da passive view")
+    val remoteProcessAddress: String = Random.shuffle(passiveView).head;
+    passiveView = passiveView.filter(!_.equals(remoteProcessAddress));
+
   }
 
-  def promoteProcessToActiveView(newNode: String): Boolean = {
-    val process = context.actorSelection(s"$newNode/user/PartialView")
-    val priority = if(activeView.isEmpty) 1 else 0
-    process ! NeighborRequest(priority, ownAddress)
+
+  def askPassiveToPromote(disconnectedNode: String) = {
+
+    val nodePromote = Random.shuffle(passiveView.filter(node => !node.equals(disconnectedNode)
+      || !node.equals(ownAddress))).head
+
+    if (nodePromote != null) {
+      val process = context.actorSelection(s"${nodePromote}/user/PartialView")
+
+
+      if (activeView.length == 0) {
+        process ! askToPromote("High")
+      } else {
+
+        process ! askToPromote("Low")
+      }
+
+    }
+
+  }
+
+
+  def promoteProcessToActiveView(newNode: String) = {
     addNodeActiveView(newNode)
-    addAlive(newNode)
-    true
+    val process = context.actorSelection(s"${newNode}/user/PartialView")
+    if (!activeView.contains(newNode) || !((newNode).equals(ownAddress)))
+      process ! AddNew()
+
+
   }
 
-
-  def promoteRandomProcessToActiveView(): Unit = {
-
-    if(passiveView.nonEmpty) {
-      var toPromote: String = ""
-      do {
-        toPromote = Random.shuffle(passiveView).head
-        passiveView = passiveView.filter(!_.equals(toPromote))
-      } while (!promoteProcessToActiveView(toPromote))
-    }
-  }
-
-  def permanentFailure(nodeAddress: String): Unit = {
-    printf("O Node: " +nodeAddress +" morreu! \n")
-    activeView = activeView.filter(!_.equals(nodeAddress))
-    passiveView = passiveView.filter(!_.equals(nodeAddress))
-    uAlive -= nodeAddress
-    //println("node : " + nodeAddress)
-    //println("new active View : ")
-    activeView.foreach(aView => println("\t" + aView.toString))
-    val plummTree = context.actorSelection("/user/MainPlummtree")
-    plummTree ! NeighborDown(nodeAddress)
-    promoteRandomProcessToActiveView()
-  }
+  def searchFailedProcesses() = {
 
 
-  def rUAlive(nodeAddr : String): Unit = {
-      val currentTime = System.currentTimeMillis()
-      processesAlive -= nodeAddr
-      uAlive += nodeAddr -> currentTime
-      val process = context.actorSelection(s"$nodeAddr/user/PartialView")
-      process ! UThere(ownAddress)
-  }
-
-  def addAlive(node: String): Unit = {
-    val timer: Double = System.currentTimeMillis()
-    processesAlive += (node -> timer)
-  }
-
-  def heartbeatProcedure(): Unit = {
-    //printf("Vou Inspecionar\n")
     for ((n, t) <- processesAlive) {
-      // 5 seconds heartbeat
-      if ((System.currentTimeMillis() - t) >= 5000) {
-      //  println("Vou ver se este gajo morreu: " + n)
-        rUAlive(n)
+
+      // 7 seconds heartbeat
+      if ((System.currentTimeMillis() - t) >= 7000 ) {
+        println("Are u ALive? " + n)
+        processesAlive -= n
+
+        val timer: Double = System.currentTimeMillis()
+        uAlive += (n -> timer)
+        //for(n <- activeView){
+
+        var process = context.actorSelection(s"${n}/user/PartialView")
+        process ! UThere(n)
+        //}
       }
     }
 
     for ((n, t) <- uAlive) {
       // more than 10 seconds
-      if ((System.currentTimeMillis() - t) >= 60000 && !n.equals(ownAddress)) {
-       // println("Enter permanent Failure process " + n)
+
+
+      if ((System.currentTimeMillis() - t) >= 10000) {
+
+
         permanentFailure(n)
+
+
       }
     }
   }
 
+  def permanentFailure(nodeAddress: String) = {
+    println("Enter permanent Failure process " + nodeAddress)
 
-  def passiveViewShufflrProcedure(): Unit = {
-    if(passiveView.nonEmpty) {
-      val neighbor: String = Random.shuffle(activeView).head
-      val remoteProcess = context.actorSelection(neighbor.concat(ACTOR_NAME))
-      val toSend: List[String] = Random.shuffle(passiveView.filter(node => !node.equals(neighbor)).take(3))
-      passiveView = passiveView.diff(toSend)
-      remoteProcess ! RefreshPassiveView(ownAddress, toSend)
+    activeView = activeView.filter(!_.equals(nodeAddress))
+    passiveView = passiveView.filter(!_.equals(nodeAddress))
+    uAlive -= nodeAddress
+
+    println("node : " + nodeAddress)
+
+    println("new active View : ")
+    activeView.foreach(aView => println("\t" + aView.toString))
+
+
+    val process = context.actorSelection(s"${nodeAddress}/user/Plummtree")
+    process ! NeighborDown(nodeAddress)
+
+
+  }
+
+
+  def initHeartbeat() = {
+    for (h <- activeView) {
+      var process = context.actorSelection(s"${h}/user/PartialView")
+      process ! Heartbeat()
     }
   }
 
 
-
 }
 
-object PartialView{
-  val props: Props = Props[PartialView]
+object PartialView {
+  val props = Props[PartialView]
 
-  case class PassiveViewProcedure()
+  case class ReceiveRefreshPassive(senderAddress: String, nodesToRefresh: List[String])
 
-  case class RefreshPassiveView(senderAddress : String, nodesToRefresh: List[String])
+  case class ReceiveRefreshSendPassive(senderAddress: String, nodesToRefresh: List[String])
 
-  case class RefreshPassiveViewReply(toSend: List[String])
+  //case class NodeFailure(nodeAddress: String);
+
+  case class Verify(nodeAddress: String)
 
   case class ImHere(nodeAddress: String)
 
-  case class UThere(nodeAddress: String)
+  case class SendLiveMessage(n: String)
 
-  case class NeighborRequest(priority: Int, nodeAddress : String)
+  case class UThere(n: String)
 
-  case class HeartbeatProcedure()
+  case class AddNew()
 
-  case class Init (ownAddress : String, contactNode : String)
+  case class Heartbeat()
 
-  case class Join (newNodeAddress: String)
+  case class Init(ownAddress: String, contactNode: String);
 
-  case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String)
+  case class Join(ownAddress : String, contactNode : String);
 
-  case class Disconnect (disconnectNode: String)
+  case class ForwardJoin(newNode: String, arwl: Int, senderAddress: String, contactNode: String);
 
-  case class getPeers(fanout: Integer)
+  case class Disconnect(disconnectNode: String);
+
+  case class getPeers(fanout: Integer);
+
+  case class askToPromote(priority: String)
 
 }
 
