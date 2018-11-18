@@ -13,7 +13,7 @@ class PartialView extends Actor with Timers {
   //val AKKA_IP_PREPEND  = "akka.tcp://"
   val SYSTEM_NAME = "node"
   val ACTOR_NAME = "/user/PartialView"
-  val ACTOR_NAMEE = "/user/Plummtree"
+  val ACTOR_NAMEE = "/user/MainPlummtree"
   var ownAddress: String = "" //actor re f
   var activeView: List[String] = List.empty //list of node@host:port
   var passiveView: List[String] = List.empty
@@ -29,7 +29,7 @@ class PartialView extends Actor with Timers {
 
 
     case message: PartialView.Init => {
-      val process2 = context.actorSelection(s"${ownAddress}/user/Plummtree")
+      val process2 = context.actorSelection(s"${ownAddress}/user/MainPlummtree")
 
       if (!message.contactNode.equals("")) {
 
@@ -63,7 +63,7 @@ class PartialView extends Actor with Timers {
 
       //println("Received Join from: " + sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
-      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+      val process = context.actorSelection(s"${ownAddress}/user/MainPlummtree")
       process ! NeighborUp(sender.path.address.toString)
 
       activeView.filter(node => !node.equals(sender.path.address.toString) && !node.equals(ownAddress)).foreach(node => {
@@ -75,7 +75,7 @@ class PartialView extends Actor with Timers {
 
 
     case forwardJoin: ForwardJoin => {
-      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+      val process = context.actorSelection(s"${ownAddress}/user/MainPlummtree")
       //println("Received ForwardJoin from " + sender.path.address.toString + " with arwl = " + forwardJoin.arwl)
       if (forwardJoin.arwl == 0 || activeView.size == 1) {
 
@@ -156,7 +156,7 @@ class PartialView extends Actor with Timers {
 
 
     case addNewtoActive: AddNew => {
-      val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+      val process = context.actorSelection(s"${ownAddress}/user/MainPlummtree")
       process ! NeighborUp(sender.path.address.toString)
       addNodeActiveView(sender.path.address.toString)
 
@@ -400,7 +400,7 @@ class PartialView extends Actor with Timers {
     activeView.foreach(aView => println("\t" + aView.toString))
 
 
-    val process = context.actorSelection(s"${ownAddress}/user/Plummtree")
+    val process = context.actorSelection(s"${ownAddress}/user/MainPlummtree")
     process ! NeighborDown(nodeAddress)
 
 
