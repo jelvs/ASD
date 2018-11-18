@@ -247,21 +247,7 @@ class MainPlummtree extends Actor with Timers {
 
   }
 
-
-  /*
-  def dispatch() = {
-
-    for(peerAddress <- lazyPushPeers) {
-      for (lazymessageId <- lazyQueue) {
-        val actorRef = context.actorSelection(peerAddress.concat(ACTOR_NAME))
-        actorRef ! IHave(lazymessageId, round, sender)
-      }
-    }
-  }
-
-  */
-
-
+  
 }
 
 object MainPlummtree {
